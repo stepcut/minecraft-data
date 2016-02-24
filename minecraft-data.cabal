@@ -11,7 +11,9 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Mindcraft.Core
+  exposed-modules:     Minecraft.Anvil
+                       Minecraft.Chunk
+                       Mindcraft.Core
                        Mindcraft.Commands
                        Mindcraft.Player
                        Mindcraft.Level
