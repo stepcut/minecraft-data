@@ -7,14 +7,25 @@
 module Minecraft.Anvil where
 
 import Control.Monad (replicateM)
+import Codec.Compression.Zlib (decompress)
 import Data.Bits (shiftR, shiftL, (.&.), (.|.))
+import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy as LB
 import Data.Data (Data, Typeable)
-import Data.Serialize (Serialize(..), Get, Put, getWord8, getWord32be, putWord8, putWord32be)
+import Data.Map (Map)
+import qualified Data.Map as Map
+import Data.NBT (NBT)
+import Data.Serialize (Serialize(..), Get, Put, decodeLazy, getLazyByteString, getWord8, getWord32be, putLazyByteString, putWord8, putWord32be)
 import Data.Time.Clock.POSIX (POSIXTime)
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import Data.Word  (Word8, Word32)
 import GHC.Generics
+import Pipes.ByteString (fromHandle)
+import Pipes.Cereal  (decodeGet)
+import Pipes.Parse (runStateT)
+import System.IO (Handle, hSeek, SeekMode(AbsoluteSeek))
+
 {-
 regionX :: Double -- ^ chunkX
         -> Int
@@ -112,8 +123,67 @@ getAnvilHeader =
      timestamps <- replicateM 1024 getTimestamp
      pure $ AnvilHeader (Vector.fromList locations) (Vector.fromList timestamps)
 
+instance Serialize AnvilHeader where
+  put = putAnvilHeader
+  get = getAnvilHeader
+
 emptyAnvilHeader :: AnvilHeader
 emptyAnvilHeader =
   AnvilHeader { locations  = Vector.replicate 1024 emptyChunkLocation
               , timestamps = Vector.replicate 1024 0
               }
+
+data CompressionType
+  = GZip -- ^ unused in practice
+  | Zlib
+  deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
+
+-- | ChunkData
+--
+-- Compressed chunk data
+data ChunkData = ChunkData
+  { chunkDataLength      :: Word32 -- ^ length of chunkData + 1
+  , chunkDataCompression :: CompressionType -- ^ compression type
+  , chunkData            :: ByteString -- ^ compressed data (length - 1)
+  }
+  deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
+
+putChunkData :: ChunkData -> Put
+putChunkData cd =
+  do putWord32be (chunkDataLength cd)
+     case chunkDataCompression cd of
+       GZip -> putWord8 1
+       Zlib -> putWord8 2
+     putLazyByteString (chunkData cd)
+
+getChunkData :: Get ChunkData
+getChunkData =
+  do len  <- getWord32be
+     comp <- do w <- getWord8
+                case w of
+                  1 -> pure GZip
+                  2 -> pure Zlib
+                  _ -> error $ "Unknown compression code in getChunkData: " ++ show w
+     bs   <- getLazyByteString (fromIntegral (len - 1))
+     pure $ ChunkData len comp bs
+
+instance Serialize ChunkData where
+  put = putChunkData
+  get = getChunkData
+
+-- | read 'ChunkData' from a Seekable 'Handle'
+readChunkData :: Handle -> ChunkLocation -> IO (Maybe ChunkData)
+readChunkData h chunkLocation
+  | chunkLocation == emptyChunkLocation = pure Nothing
+  | otherwise =
+      do hSeek h AbsoluteSeek (fromIntegral $ ((chunkOffset chunkLocation) * 4096))
+         (r, _) <- runStateT (decodeGet getChunkData) (fromHandle h)
+         case r of
+           (Left err) -> error err
+           (Right cd) -> pure (Just cd)
+
+decompressChunkData :: ChunkData -> Either String NBT
+decompressChunkData cd
+  | chunkDataCompression cd == Zlib =
+    decodeLazy (decompress (chunkData cd))
+  | otherwise = error $ "decompressChunkData not implemented for " ++ show (chunkDataCompression cd)

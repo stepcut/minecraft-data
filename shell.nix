@@ -4,12 +4,12 @@ let
 
   inherit (nixpkgs) pkgs;
 
-  f = { mkDerivation, array, base, nbt, stdenv, text, lens, zlib, time, text-show }:
+  f = { mkDerivation, array, base, cereal, nbt, pipes-cereal, pipes-zlib, stdenv, text, lens, time, text-show, vector, zlib }:
       mkDerivation {
         pname = "minecraft-commands";
         version = "0.1.0.0";
         src = ./.;
-        libraryHaskellDepends = [ base array nbt text lens zlib time text-show ];
+        libraryHaskellDepends = [ base array cereal nbt pipes-cereal pipes-zlib text lens time text-show vector zlib ];
         homepage = "https://github.com/stepcut/minecraft-commands";
         description = "a DSL for generating minecraft commands";
         license = stdenv.lib.licenses.bsd3;

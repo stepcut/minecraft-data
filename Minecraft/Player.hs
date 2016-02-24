@@ -7,7 +7,6 @@ module Minecraft.Player where
 
 import Control.Lens.TH (makeLenses)
 import Data.Data (Data)
-import Data.Time.Clock.POSIX (POSIXTime)
 import Data.Typeable (Typeable)
 import Data.NBT
 import Data.Int (Int8, Int16, Int32, Int64)

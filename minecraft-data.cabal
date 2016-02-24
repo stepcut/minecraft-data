@@ -18,9 +18,16 @@ library
   other-extensions:    DeriveDataTypeable, DeriveGeneric, OverloadedStrings
   build-depends:       array,
                        base >=4.8 && <4.9,
+                       cereal,
+                       pipes-bytestring,
+                       pipes-cereal,
+                       pipes-parse,
+                       pipes-zlib,
                        lens,
                        nbt >= 0.6 && < 0.7,
                        text >=1.2 && <1.3,
                        text-show,
-                       time
+                       time,
+                       vector,
+                       zlib
   default-language:    Haskell2010
