@@ -133,7 +133,12 @@ instance ToNBTContents GameMode where
       AdventureMode -> 2
       SpectatorMode -> 3
 
-newtype EntityId = EntityId { unEntityId:: Int }
+
+newtype BlockId = BlockId { _unBlockId:: Int8 }
+    deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
+makeLenses ''BlockId
+
+newtype EntityId = EntityId { unEntityId:: Int8 }
     deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
 
 data Entity
