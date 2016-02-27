@@ -47,8 +47,8 @@ instance ToNBTContents Section where
       , NBT "SkyLight" (ByteArrayTag (vectorArray (_SkyLight section)))
       ])
 
-defaultSection :: Section
-defaultSection = Section
+emptySection :: Section
+emptySection = Section
   { _Y          = 0
   , _Blocks     = Vector.replicate 4096 (BlockId 0)
   , _Add        = Nothing
@@ -96,8 +96,8 @@ data Chunk = Chunk
   deriving (Eq, Ord, Show, Typeable, Generic)
 makeLenses ''Chunk
 
-defaultChunk :: Chunk
-defaultChunk = Chunk
+emptyChunk :: Chunk
+emptyChunk = Chunk
   { _xPos             = 0
   , _zPos             = 0
   , _LastUpdate       = 0
@@ -127,3 +127,8 @@ instance ToNBTContents Chunk where
       , NBT "HeightMap" (IntArrayTag (vectorArray (_HeightMap chunk)))
       , NBT "Sections" (ListTag (listArray (0, fromIntegral (length (_Sections chunk) - 1)) (map toNBTContents (_Sections chunk))))
       ])
+
+instance ToNBT Chunk where
+  toNBT chunk =
+    (NBT "" (CompoundTag [ NBT "Level" (toNBTContents chunk) ]))
+

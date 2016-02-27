@@ -5,7 +5,7 @@ import Data.ByteString (hGetSome)
 import Data.Serialize (decode)
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
-import Minecraft.Anvil (AnvilHeader(..), ChunkLocation(..), getAnvilHeader, readChunkData, decompressChunkData)
+import Minecraft.Anvil (AnvilHeader(..), ChunkLocation(..), getAnvilHeader, readChunkData, decompressChunkData, showAnvilHeader)
 import System.IO (Handle, openFile, hClose, IOMode(ReadMode))
 import System.Environment (getArgs)
 
@@ -16,7 +16,11 @@ main =
        bs <- hGetSome h 8192 -- ^ header size is a fixed 8KiB
        case decode bs of
          (Left err) -> putStrLn err
-         (Right ah)  -> dumpChunks h ah
+         (Right ah)  ->
+           do putStrLn (showAnvilHeader ah)
+--              bs <- hGetSome h 1024
+--              print bs
+              dumpChunks h ah
 
 dumpChunk :: Handle -> ChunkLocation -> IO ()
 dumpChunk h chunkLocation =

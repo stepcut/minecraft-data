@@ -6,24 +6,28 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Minecraft.Anvil where
 
-import Control.Monad (replicateM)
-import Codec.Compression.Zlib (decompress)
+import Control.Monad (when, replicateM)
+import Control.Monad.State.Strict (execStateT, modify')
+import Codec.Compression.Zlib (decompress, compress)
 import Data.Bits (shiftR, shiftL, (.&.), (.|.))
 import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as LB
 import Data.Data (Data, Typeable)
+import Data.List (mapAccumL)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.NBT (NBT)
-import Data.Serialize (Serialize(..), Get, Put, decodeLazy, getLazyByteString, getWord8, getWord32be, putLazyByteString, putWord8, putWord32be)
+import Data.Serialize (Serialize(..), Get, Put, decodeLazy, encodeLazy, getLazyByteString, getWord8, getWord32be, putLazyByteString, putWord8, putWord32be)
 import Data.Time.Clock.POSIX (POSIXTime)
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import Data.Word  (Word8, Word32)
 import GHC.Generics
-import Pipes.ByteString (fromHandle)
-import Pipes.Cereal  (decodeGet)
+import Pipes.ByteString (fromHandle, toHandle)
+import Pipes.Cereal  (decodeGet, encodePut)
 import Pipes.Parse (runStateT)
+import Pipes (Pipe, runEffect, (>->), await, each, yield)
 import System.IO (Handle, hSeek, SeekMode(AbsoluteSeek))
 
 {-
@@ -37,22 +41,23 @@ regionY y = foor (y / 32.0)
 -}
 
 type ChunkX = Int
-type ChunkY = Int
+type ChunkZ = Int
 type RegionX = Int
-type RegionY = Int
+type RegionZ = Int
+
+type ChunkMap = Map (ChunkX, ChunkZ) (ChunkData, POSIXTime)
 
 regionX :: ChunkX
         -> RegionX
 regionX x = x `shiftR` 5
 
-regionY :: ChunkY
-        -> RegionY
-regionY y = y `shiftR` 5
+regionZ :: ChunkZ
+        -> RegionZ
+regionZ z = z `shiftR` 5
 
-chunkIndex :: ChunkX
-           -> ChunkY
+chunkIndex :: (ChunkX, ChunkZ)
            -> Int
-chunkIndex x z = (x `pmod` 32) + ((z `pmod` 32) * 32)
+chunkIndex (x, z) = (x `pmod` 32) + ((z `pmod` 32) * 32)
   where
     pmod n m =
       let n' = n `mod` m
@@ -100,6 +105,11 @@ data AnvilHeader = AnvilHeader
   }
   deriving (Eq, Ord, Show, Data, Typeable, Generic)
 
+showAnvilHeader :: AnvilHeader -> String
+showAnvilHeader ah = show $ AnvilHeader { locations = Vector.filter (/= emptyChunkLocation) (locations ah)
+                                        , timestamps = Vector.filter (/= 0) (timestamps ah)
+                                        }
+
 -- guessing on the timestamp format a bit
 putTimestamp :: POSIXTime -> Put
 putTimestamp t = putWord32be (round t)
@@ -133,6 +143,24 @@ emptyAnvilHeader =
               , timestamps = Vector.replicate 1024 0
               }
 
+-- | make an 'AnvilHeader'
+--
+-- assumes the chunks will be written in the same order as they appear in the list
+mkAnvilHeader :: [((ChunkX, ChunkZ), (ChunkData, POSIXTime))]
+                 -> AnvilHeader
+mkAnvilHeader chunks =
+  let timestamps' = map (\(i, (_, t)) -> (chunkIndex i, t)) chunks
+      locations'   = snd $ mapAccumL mkLocation 0x2 chunks -- ^ first chunk is at sector 0x2, after the AnvilHeader
+  in AnvilHeader { locations  = (locations emptyAnvilHeader) Vector.// locations'
+                 , timestamps = (timestamps emptyAnvilHeader) Vector.// timestamps'
+                 }
+  where
+    mkLocation :: Word24 -> ((ChunkX, ChunkZ), (ChunkData, POSIXTime)) -> (Word24, (Int, ChunkLocation))
+    mkLocation offset (chunkPos, (chunkData, _)) =
+      let paddedSectorLength = ((chunkDataLength chunkData) + 4 + 4095) `div` 4096
+          offset' = offset + paddedSectorLength
+      in (offset', (chunkIndex chunkPos, ChunkLocation offset (fromIntegral paddedSectorLength)))
+
 data CompressionType
   = GZip -- ^ unused in practice
   | Zlib
@@ -163,7 +191,7 @@ getChunkData =
                 case w of
                   1 -> pure GZip
                   2 -> pure Zlib
-                  _ -> error $ "Unknown compression code in getChunkData: " ++ show w
+                  _ -> error $ "Unknown compression code in getChunkData: " ++ show (len, w)
      bs   <- getLazyByteString (fromIntegral (len - 1))
      pure $ ChunkData len comp bs
 
@@ -182,8 +210,67 @@ readChunkData h chunkLocation
            (Left err) -> error err
            (Right cd) -> pure (Just cd)
 
+-- | write 'ChunkData' to a Seekable 'Handle'
+--
+-- FIXME: chunks are supposed to be guaranteed less than 1MB
+{-
+writeChunkData :: Handle -> ChunkData -> IO ()
+writeChunkData h chunkData =
+  do runEffect $ (encodePut (putChunkData chunkData)) >-> (toHandle h)
+     let padding = 4096 - ((chunkDataLength chunkData + 4) `mod` 4096)
+     when (padding > 0) (B.hPutStr h (B.replicate (fromIntegral padding) 0))
+-}
+
+writeChunkData :: (Monad m) => Pipe ChunkData B.ByteString m ()
+writeChunkData  = do
+  chunkData <- await
+  encodePut (putChunkData chunkData)
+  let padding = 4096 - ((chunkDataLength chunkData + 4) `mod` 4096)
+  when (padding > 0) (yield (B.replicate (fromIntegral padding) 0))
+
+{-
+
+  do bytes <- execStateT (runEffect $ (encodePut (putChunkData chunkData)) >-> counter >-> (toHandle h)) 0
+     pure bytes
+       where
+         counter =
+           do bs <- await
+              modify' $ \i -> i + B.length bs
+              yield bs
+-}
+{-
+readChunkData :: Handle -> ChunkLocation -> IO (Maybe ChunkData)
+readChunkData h chunkLocation
+  | chunkLocation == emptyChunkLocation = pure Nothing
+  | otherwise =
+      do hSeek h AbsoluteSeek (fromIntegral $ ((chunkOffset chunkLocation) * 4096))
+         (r, _) <- runStateT (decodeGet getChunkData) (fromHandle h)
+         case r of
+           (Left err) -> error err
+           (Right cd) -> pure (Just cd)
+-}
 decompressChunkData :: ChunkData -> Either String NBT
 decompressChunkData cd
   | chunkDataCompression cd == Zlib =
     decodeLazy (decompress (chunkData cd))
   | otherwise = error $ "decompressChunkData not implemented for " ++ show (chunkDataCompression cd)
+
+-- | NBT needs to be a Chunk
+compressChunkData :: NBT -> ChunkData
+compressChunkData nbt =
+  let d = compress (encodeLazy nbt)
+  in ChunkData { chunkDataLength      = 1 + fromIntegral (LB.length d)
+               , chunkDataCompression = Zlib
+               , chunkData            = d
+               }
+
+writeChunkMap :: Handle -> ChunkMap -> IO ()
+writeChunkMap h chunkMap =
+  do hSeek h AbsoluteSeek 0
+     let chunks = Map.toAscList chunkMap
+     runEffect $ (encodePut (putAnvilHeader (mkAnvilHeader chunks))) >-> (toHandle h)
+     runEffect $ (each $ map (fst . snd) chunks) >-> writeChunkData >-> (toHandle h)
+--     runEffect $ (encodePut (putAnvilHeader emptyAnvilHeader)) >-> (toHandle h)
+     -- [(ChunkPos, ChunkData)] -> [(ChunkPos, Length)]
+     -- chunks' <- mapM (\(chunkPos, (cd, modTime)) -> do i <- writeChunkData h cd ; pure (chunkPos, (i, modTime))) chunks
+     pure ()
