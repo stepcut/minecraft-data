@@ -1,0 +1,333 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
+module Minecraft.Block where
+
+import Data.Data
+import GHC.Generics
+
+data Wood
+  = OakWood
+  | SpruceWood
+  | BirchWood
+  | JungleWood
+  deriving (Eq, Ord, Read, Show, Data, Typeable, Generic, Enum)
+
+data WoodDirection
+  = FacingUpDown
+  | FacingEastWest
+  | FacingNorthSouth
+  | OnlyBark
+  deriving (Eq, Ord, Read, Show, Data, Typeable, Generic, Enum)
+
+data Wood2
+  = AcaciaWood
+  | DarkOakWood
+  deriving (Eq, Ord, Read, Show, Data, Typeable, Generic, Enum)
+
+data Leaves
+  = OakLeaves
+  | SpruceLeaves
+  | BirchLeaves
+  | JungleLeaves
+  | OakLeavesNoDecay
+  | SpruceLeavesNoDecay
+  | BirchLeavesNoDecay
+  | JungleLeavesNoDecay
+  | OakLeavesCheckDecay
+  | SpruceLeavesCheckDecay
+  | BirchLeavesCheckDecay
+  | JungleLeavesCheckDecay
+  | OakLeavesNoDecayCheckDecay
+  | SpruceLeavesNoDecayCheckDecay
+  | BirchLeavesNoDecayCheckDecay
+  | JungleLeavesNoDecayCheckDecay
+  deriving (Eq, Ord, Read, Show, Data, Typeable, Generic, Enum)
+
+data Leaves2
+  = AcaciaLeaves
+  | DarkOakLeaves
+  | AcaciaLeavesNoDecay
+  | DarkOakLeavesNoDecay
+  | AcaciaLeavesCheckDecay
+  | DarkOakLeavesCheckDecay
+  | AcaciaLeavesNoDecayCheckDecay
+  | DarkOakLeavesNoDecayCheckDecay
+  deriving (Eq, Ord, Read, Show, Data, Typeable, Generic, Enum)
+
+data Stone
+  = Stone
+  | Granite
+  | PolishedGranite
+  | Diorite
+  | PolishedDiorite
+  | Andesite
+  | PolishedAndesite
+  deriving (Eq, Ord, Read, Show, Data, Typeable, Generic, Enum)
+
+data Dirt
+  = Dirt
+  | CoarseDirt
+  | Podzol
+  deriving (Eq, Ord, Read, Show, Data, Typeable, Generic, Enum)
+
+data Block
+  = Air
+  | StoneBlock Stone
+  | GrassBlock
+  | DirtBlock Dirt
+  | Cobblestone
+  | WoodPlanks
+  | Sapling
+  | Bedrock
+  | Water
+  | StationaryWater
+  | Lava
+  | StationaryLava
+  | Sand
+  | Gravel
+  | GoldOre
+  | IronOre
+  | CoalOre
+  | Wood
+  | Leaves
+  | Sponge
+  | Glass
+  | LapisLazuliOre
+  | LapisLazuliBlock
+  | Dispenser
+  | Sandstone
+  | NoteBlock
+  | Bed
+  | PoweredRail
+  | DetectorRail
+  | StickyPiston
+  | Cobweb
+  | Grass
+  | DeadBush
+  | Piston
+  | PistonHead
+  | Wool
+  | PistonExtension
+  | Dandelion
+  | Poppy
+  | BrownMushroom
+  | RedMushroom
+  | BlockOfGold
+  | BlockOfIron
+  | DoubleStoneSlab
+  | StoneSlab
+  | Bricks
+  | TNT
+  | Bookshelf
+  | MossStone
+  | Obsidian
+  | Torch
+  | Fire
+  | MonsterSpawner
+  | OakWoodStairs
+  | Chest
+  | RedstoneWire
+  | DiamondOre
+  | BlockOfDiamond
+  | CraftingTable
+  | Wheat
+  | Farmland
+  | Furnace
+  | BurningFurnace
+  | StandingSign
+  | OakDoor
+  | Ladder
+  | Rail
+  | CobblestoneStairs
+  | WallSign
+  | Level
+  | StonePresurePlate
+  | IronDoor
+  | WoodenPressurePlate
+  | RedstoneOre
+  | GlowingRedstoneOre
+  | RedstoneTorchUnlit
+  | RedstoneTorch
+  | StoneButton
+  | SnowLayer
+  | Ice
+  | Snow
+  | Cactus
+  | Clay
+  | SugarCane
+  | JukeBox
+  | Fence
+  | Pumpkin
+  | Netherrack
+  | SoulSand
+  | Glowstone
+  | NetherPortal
+  | JackOLantern
+  | Cake
+  | RedstoneRepeaterUnpowered
+  | RedstoneRepeaterPowered
+  | StainedGlass
+  | Trapdoor
+  | MonsterEgg
+  | StoneBricks
+  | BrownMushroomBlock
+  | RedMushroomBlock
+  | IronBars
+  | GlassPane
+  | Melon
+  | PumpkinStem
+  | MelonStem
+  | Vines
+  | FenceGate
+  | BrickStairs
+  | StoneBrickStairs
+  | Mycelium
+  | LilyPad
+  | NetherBrick
+  | NetherBrickFence
+  | NetherBrickStairs
+  | NetherWart
+  | EnchantmentTable
+  | BrewingStand
+  | Cauldron
+  | EndPortal
+  | EndPortalFrame
+  | EndStone
+  | DragonEgg
+  | RedstoneLampUnlit
+  | RedstoneLampLit
+  | DoubleWoodenSlab
+  | WoodenSlab
+  | Cocoa
+  | SandstoneStairs
+  | EmeraldOre
+  | EnderChest
+  | TripwireHook
+  | Tripwire
+  | BlockOfEmerald
+  | SpruceWoodStairs
+  | BirchWoodStairs
+  | JungleWoodStairs
+  | CommandBlock
+  | Beacon
+  | CobblestoneWall
+  | FlowerPot
+  | Carrot
+  | Potato
+  | WoodenButton
+  | ModHead
+  | Anvil
+  | TrappedChest
+  | WeightedPressurePlateLight
+  | WeightedPressurePlateHeavy
+  | RedstoneComparator
+  | RedstoneComparatorDeprecated
+  | DaylightSensor
+  | BlockOfRedstone
+  | NetherQuartzOre
+  | Hopper
+  | BlockOfQuartz
+  | QuartzStairs
+  | ActivatorRails
+  | Dropper
+  | StainedClay
+  | StainedGlassPane
+  | Leaves2
+  | Wood2
+  | AcaciaWoodStairs
+  | DarkOakWoodStairs
+  | SlimeBlock
+  | Barrier
+  | IronTrapdoor
+  | Prismarine
+  | SeaLantern
+  | HayBale
+  | Carpet
+  | HardenedClay
+  | BlockOfCoal
+  | PackedIce
+  | LargeFlowers
+  | StandingBarrier
+  | WallBanner
+  | InvertedDaylightSensor
+  | RedSandstone
+  | RedSandstoneStairs
+  | DoubleRedSandstoneStairs
+  | RedSandstoneSlab
+  | SpruceFenceGate
+  | BirchFenceGate
+  | JungleFenceGate
+  | DarkOakFenceGate
+  | AcaciaFenceGate
+  | SpruceFence
+  | BirchFence
+  | JungleFence
+  | DarkOakFence
+  | AcaciaFence
+  | SpruceDoor
+  | BirchDoor
+  | JungleDoor
+  | AcaciaDoor
+  | DarkOakDoor
+  | EndRod
+  | ChorusPlant
+  | ChorusFlower
+  | PurpurBlock
+  | PurpurPillar
+  | PurpurStairs
+  | PurpurDoubleSlab
+  | PurpurSlab
+  | EndStoneBricks
+  | BeetrootSeeds
+  | GrassPath
+  | EndGateway
+  | RepeatingCommandBlock
+  | ChainCommandBlock
+  | FrostedIce
+  | Undefined213
+  | Undefined214
+  | Undefined215
+  | Undefined216
+  | Undefined217
+  | Undefined218
+  | Undefined219
+  | Undefined220
+  | Undefined221
+  | Undefined222
+  | Undefined223
+  | Undefined224
+  | Undefined225
+  | Undefined226
+  | Undefined227
+  | Undefined228
+  | Undefined229
+  | Undefined230
+  | Undefined231
+  | Undefined232
+  | Undefined233
+  | Undefined234
+  | Undefined235
+  | Undefined236
+  | Undefined237
+  | Undefined238
+  | Undefined239
+  | Undefined240
+  | Undefined241
+  | Undefined242
+  | Undefined243
+  | Undefined244
+  | Undefined245
+  | Undefined246
+  | Undefined247
+  | Undefined248
+  | Undefined249
+  | Undefined250
+  | Undefined251
+  | Undefined252
+  | Undefined253
+  | Undefined254
+  | StructureBlock
+  deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
+
+
+

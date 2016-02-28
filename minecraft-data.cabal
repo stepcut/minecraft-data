@@ -12,6 +12,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Minecraft.Anvil
+                       Minecraft.Block
                        Minecraft.Chunk
                        Mindcraft.Core
                        Mindcraft.Commands
