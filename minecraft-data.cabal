@@ -21,7 +21,7 @@ library
                        Mindcraft.Level
   other-extensions:    DeriveDataTypeable, DeriveGeneric, OverloadedStrings
   build-depends:       array,
-                       base >=4.8 && <4.9,
+                       base >=4.8 && <4.10,
                        cereal,
                        pipes-bytestring,
                        pipes-cereal,
