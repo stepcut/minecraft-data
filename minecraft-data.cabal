@@ -6,7 +6,7 @@ license:             BSD3
 license-file:        LICENSE
 author:              jeremy@n-heptane.com
 maintainer:          jeremy@n-heptane.com
-category:            Game
+category:            Game, Minecraft
 build-type:          Simple
 cabal-version:       >=1.10
 tested-with:         GHC == 7.10.2, GHC==8.0.1

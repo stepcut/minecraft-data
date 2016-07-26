@@ -1,3 +1,4 @@
+# minecraft-data [![Hackage Status](https://img.shields.io/hackage/v/minecraft-data.svg)][hackage] [![Build Status](https://travis-ci.org/stepcut/minecraft-data.svg?branch=master)](https://travis-ci.org/stepcut/minecraft-data)
 minecraft-data
 ==============
 
