@@ -1,6 +1,6 @@
 # minecraft-data [![Hackage Status](https://img.shields.io/hackage/v/minecraft-data.svg)][hackage] [![Build Status](https://travis-ci.org/stepcut/minecraft-data.svg?branch=master)](https://travis-ci.org/stepcut/minecraft-data)
-minecraft-data
-==============
+
+[hackage]: https://hackage.haskell.org/package/minecraft-data
 
 This library provides support for creating mindcraft levels (.mca files) and commands (that can be entered in the game console).
 
