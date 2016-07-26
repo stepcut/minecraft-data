@@ -1,6 +1,7 @@
 name:                minecraft-data
 version:             0.1.0.0
-synopsis:            a DSL for generating minecraft commands and dat
+synopsis:            a DSL for generating minecraft commands and levels
+description:         a DSL for generating minecraft commands and levels
 homepage:            https://github.com/stepcut/minecraft-data
 license:             BSD3
 license-file:        LICENSE
