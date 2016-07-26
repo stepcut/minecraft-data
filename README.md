@@ -20,4 +20,15 @@ https://github.com/stepcut/minecraft-data/blob/master/Minecraft/Command.hs
 
 Patches welcome!
 
+
+Much of the data comes from here:
+
+http://minecraft.gamepedia.com/Data_values
+
+This site looks promising as well:
+
+https://www.digminecraft.com/lists/item_id_list_pc.php
+
 - jeremy
+
+

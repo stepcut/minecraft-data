@@ -4,14 +4,22 @@ let
 
   inherit (nixpkgs) pkgs;
 
-  f = { mkDerivation, array, base, cereal, nbt, pipes-cereal, pipes-zlib, stdenv, text, lens, time, text-show, vector, zlib }:
+  f = { mkDerivation, array, base, bytestring, cereal, containers
+      , lens, nbt, pipes, pipes-bytestring, pipes-cereal, pipes-parse
+      , pipes-zlib, stdenv, text, text-show, time, vector, zlib, cabal-install, mtl
+      }:
       mkDerivation {
-        pname = "minecraft-commands";
+        pname = "minecraft-data";
         version = "0.1.0.0";
         src = ./.;
-        libraryHaskellDepends = [ base array cereal nbt pipes-cereal pipes-zlib text lens time text-show vector zlib ];
-        homepage = "https://github.com/stepcut/minecraft-commands";
-        description = "a DSL for generating minecraft commands";
+        libraryHaskellDepends = [
+          array base bytestring cereal containers lens nbt pipes
+          pipes-bytestring pipes-cereal pipes-parse pipes-zlib text text-show
+          time vector zlib mtl
+        ];
+        buildTools = [ cabal-install ];
+        homepage = "https://github.com/stepcut/minecraft-data";
+        description = "a DSL for generating minecraft commands and levels";
         license = stdenv.lib.licenses.bsd3;
       };
 
