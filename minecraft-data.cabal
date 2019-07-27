@@ -1,5 +1,5 @@
 name:                minecraft-data
-version:             0.1.0.0
+version:             0.1.0.1
 synopsis:            a DSL for generating minecraft commands and levels
 description:         a DSL for generating minecraft commands and levels
 homepage:            https://github.com/stepcut/minecraft-data
@@ -26,7 +26,7 @@ library
                        Minecraft.Level
   other-extensions:    DeriveDataTypeable, DeriveGeneric, OverloadedStrings
   build-depends:       array,
-                       base >=4.8 && <4.10,
+                       base >=4.8 && <4.13,
                        bytestring,
                        containers,
                        cereal,
@@ -37,7 +37,7 @@ library
                        pipes,
                        lens,
                        mtl,
-                       nbt >= 0.6 && < 0.7,
+                       nbt >= 0.6 && < 0.8,
                        text >=1.2 && <1.3,
                        text-show,
                        time,
