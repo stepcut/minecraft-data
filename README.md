@@ -14,7 +14,7 @@ An example showing how to generate a chunk in a level can be found at:
 
 https://github.com/stepcut/minecraft-data/blob/master/utils/GenWorld.hs
 
-At the moment, the only command which is implemented is give:
+At the moment, the only command which is implemented is `Give`:
 
 https://github.com/stepcut/minecraft-data/blob/master/Minecraft/Command.hs
 
@@ -28,6 +28,14 @@ http://minecraft.gamepedia.com/Data_values
 This site looks promising as well:
 
 https://www.digminecraft.com/lists/item_id_list_pc.php
+
+The flattening in 1.13 and later,
+
+http://llbit.se/?p=3274
+
+The building combinators were introduced by Tim Philip Williams is this blog post
+
+http://www.timphilipwilliams.com/posts/2019-07-25-minecraft.html
 
 - jeremy
 

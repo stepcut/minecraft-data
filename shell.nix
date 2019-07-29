@@ -4,7 +4,7 @@ let
 
   inherit (nixpkgs) pkgs;
 
-  f = { mkDerivation, array, base, bytestring, cereal, containers
+  f = { mkDerivation, array, base, bimap, bytestring, cereal, containers
       , lens, nbt, pipes, pipes-bytestring, pipes-cereal, pipes-parse
       , pipes-zlib, stdenv, text, text-show, time, vector, zlib, cabal-install, mtl
       }:
@@ -13,7 +13,7 @@ let
         version = "0.1.0.0";
         src = ./.;
         libraryHaskellDepends = [
-          array base bytestring cereal containers lens nbt pipes
+          array base bimap bytestring cereal containers lens nbt pipes
           pipes-bytestring pipes-cereal pipes-parse pipes-zlib text text-show
           time vector zlib mtl
         ];

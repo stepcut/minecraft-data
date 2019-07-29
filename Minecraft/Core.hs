@@ -413,11 +413,17 @@ instance ToNBTContents Dimension where
       Overworld -> 0
       End       -> 1
 
-data XYZ = XYZ
+data XYZ
+  = XYZ -- ^ absolute position
   { _x :: Int32
   , _y :: Int32
   , _z :: Int32
   }
+  | RXYZ -- ^ relative position
+    { _x :: Int32
+    , _y :: Int32
+    , _z :: Int32
+    }
   deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
 makeLenses ''XYZ
 
