@@ -6,6 +6,7 @@ module Minecraft.Block where
 import Data.Bimap (Bimap, fromList)
 import Data.Data
 import Data.Text (Text)
+import Data.Monoid ((<>))
 import qualified Data.Text as Text
 import GHC.Generics
 

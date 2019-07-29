@@ -18,7 +18,7 @@ import qualified Data.Map as Map
 import           Minecraft.Block
 import           Minecraft.Command (Command(SetBlock), OldBlockHandling)
 import           Minecraft.Core (XYZ(..), x, y ,z, render)
-import           System.Random
+import           System.Random (randomIO)
 import           System.FilePath
 import           System.IO
 
@@ -75,6 +75,12 @@ rotate_y = mapBlocks $ over blockXYZ $ \xyz ->
                (XYZ x y z) -> XYZ y x z
                (RXYZ x y z) -> RXYZ y x z
 
+grid :: Int32 -> [[Blocks]] -> Blocks
+grid spacing = f z . map (f x . map centre_xz)
+  where
+    f :: Dimension -> [Blocks] -> Blocks
+    f d = foldr (\a b -> a <> move d spacing b) mempty
+
 makeRelative :: Blocks -> Blocks
 makeRelative = mapBlocks $ over blockXYZ $ \xyz ->
   case xyz of
@@ -105,16 +111,46 @@ repeat f n = mconcat . take (fromIntegral n) . iterate f
 replicate :: Dimension -> Int32 -> Int32 -> Blocks -> Blocks
 replicate d i = repeat (move d i)
 
+-- | Substitute one block for another, intended to be used infix, e.g.
+-- @ castle `subst` (cobblestone, sandstone) @
+subst :: Blocks -> (Block, Block) -> Blocks
+subst blocks (from, to) = mapKind f blocks
+  where
+    f k | k == from = to
+        | otherwise = k
+
+randomise :: Double -> (Block, Block) -> Blocks -> IO Blocks
+randomise p (from, to) (Blocks bs) =
+    Blocks <$> mapM f bs
+  where
+    f b | view blockKind b == from = do
+              r <- randomIO
+              return $ if r < p
+                       then set blockKind to b
+                       else b
+        | otherwise = return b
+
 -- | Create a line of cobblestone blocks with length 'n' along dimension 'd'.
 line :: Dimension -> Int32 -> Blocks
 line d n = replicate d 1 n zero # Cobblestone
+
+circle :: Int32 -> Int32 -> Blocks
+circle r steps = translate r 0 r $
+    mkBlocks [ XYZ x 0 z
+             | s <- [1..steps]
+             , let phi = (2*pi*fromIntegral s) / fromIntegral steps :: Double
+                   z   = round $ fromIntegral r * cos phi
+                   x   = round $ fromIntegral r * sin phi
+             ]
+
+cylinder :: Int32 -> Int32 -> Blocks
+cylinder r h = repeat (move y 1) h (circleFloor r)
 
 wall :: Dimension -> Int32 -> Int32 -> Blocks
 wall d w h
     = replicate y 1 h
     . replicate d 1 w
     $ zero # Cobblestone
-
 
 floor :: Int32 -> Int32 -> Blocks
 floor wx wz
@@ -165,16 +201,6 @@ squareTurret w h = mconcat
     w'      = w + 2
     windows = replicate y 3 (h `div` 3) zero
 
-
-circle :: Int32 -> Int32 -> Blocks
-circle r steps = translate r 0 r $
-    mkBlocks [ XYZ x 0 z
-             | s <- [1..steps]
-             , let phi = (2*pi*fromIntegral s) / fromIntegral steps :: Double
-                   z   = round $ fromIntegral r * cos phi
-                   x   = round $ fromIntegral r * sin phi
-             ]
-
 circleWall :: Int32 -> Int32 -> Int32 -> Blocks
 circleWall r h steps =
     repeat (move y 1) h (circle r steps)
@@ -187,9 +213,6 @@ circleFloor r = translate r 0 r $
              , let d = sqrt (fromIntegral $ x*x + z*z) :: Double
              , d <= fromIntegral r
              ]
-
-cylinder :: Int32 -> Int32 -> Blocks
-cylinder r h = repeat (move y 1) h (circleFloor r)
 
 spiral :: Int32 -> Int32 -> Int32 -> Int32 -> Blocks
 spiral r h revs steps = translate r 0 r $
@@ -236,13 +259,6 @@ circularTurret_germanic r h steps =
          (move y 1 (circle r' 4) # Air <> -- top windows
           move y 2 (cone r' 8 (2 * steps) # Bricks)) -- cone roof
   where r' = r + 1
-
-
-grid :: Int32 -> [[Blocks]] -> Blocks
-grid spacing = f z . map (f x . map centre_xz)
-  where
-    f :: Dimension -> [Blocks] -> Blocks
-    f d = foldr (\a b -> a <> move d spacing b) mempty
 
 -- | Make a solid archway of radius 'r' and thickness 't'.
 archway :: Int32 -> Int32 -> Blocks
@@ -303,42 +319,18 @@ englishCastle = mconcat
     -- gatehouse entrance has two turrets together
     g  = move x (-12) t <> move x 12 t
 
-randomise :: Double -> (Block, Block) -> Blocks -> IO Blocks
-randomise p (from, to) (Blocks bs) =
-    Blocks <$> mapM f bs
-  where
-    f b | view blockKind b == from = do
-              r <- randomIO
-              return $ if r < p
-                       then set blockKind to b
-                       else b
-        | otherwise = return b
-
 mossy :: Blocks -> IO Blocks
 mossy = randomise 0.2 (Cobblestone, MossyCobblestone)
-
--- | Substitute one block for another, intended to be used infix, e.g.
--- @ castle `subst` (cobblestone, sandstone) @
-subst :: Blocks -> (Block, Block) -> Blocks
-subst blocks (from, to) = mapKind f blocks
-  where
-    f k | k == from = to
-        | otherwise = k
 
 -- | Removes unnecessary setblock instructions from the list.
 prune :: Blocks -> Blocks
 prune = Blocks . Map.elems . Map.fromList . map (_blockXYZ &&& id) . unBlocks
 
-
-renderLvl :: FilePath -> String -> String -> XYZ -> Blocks -> IO ()
-renderLvl minecraftDir levelName functionName XYZ{..} (prune -> blocks) =
+renderFn :: FilePath -> String -> String -> XYZ -> Blocks -> IO ()
+renderFn minecraftDir levelName functionName XYZ{..} (prune -> blocks) =
     withFile filePath WriteMode $ \hnd ->
         forM_ (unBlocks $ translate _x _y _z blocks) $ \(BlockXYZ xyz blk mold) ->
           LT.hPutStrLn hnd $ B.toLazyText $ render (SetBlock xyz blk mold)
-  {-
-          hPutStrLn hnd $ printf "setblock %s %s %s %s %s"
-              (show _x) (show _y) (show _z) kind (maybe "" (\s -> "["++s++"]") mstate)
--}
   where
     filePath = foldr (</>) (functionName ++ ".mcfunction")
                    [ minecraftDir, "saves", levelName, "datapacks"
