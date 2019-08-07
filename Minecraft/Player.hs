@@ -12,7 +12,7 @@ import Data.NBT
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import Minecraft.Core (Attribute(..), Dimension(..), Int6, Item(..), GameMode(..), ToNBT(..), ToNBTContents(..), XYZ(..))
+import Minecraft.Core (Attribute(..), Dimension(..), Int6, Item(..), GameMode(..), ToNBT(..), ToNBTContents(..), XYZ(..), Pos(..), PosKind(..))
 import TextShow (showt)
 
 data Abilities = Abilities
@@ -109,11 +109,12 @@ instance ToNBT Player where
   toNBT player =
     NBT "Player" (toNBTContents player)
 
+-- FIXME: what happens if the player spawn position includes tilda/caret
 instance ToNBTContents Player where
   toNBTContents player = (CompoundTag
       ((case _playerSpawn player of
           Nothing -> []
-          (Just (XYZ x y z)) ->
+          (Just (XYZ (Pos Abs x) (Pos Abs y) (Pos Abs z))) ->
             [ NBT "SpawnX" (toNBTContents x)
             , NBT "SpawnY" (toNBTContents y)
             , NBT "SpawnZ" (toNBTContents z)

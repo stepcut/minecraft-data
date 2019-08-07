@@ -13,7 +13,7 @@ import Data.NBT
 import Data.Int (Int32, Int64)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import Minecraft.Core (Difficulty(..), GameMode(..), ToNBT(..), ToNBTContents(..), XYZ(..), sunrise)
+import Minecraft.Core (Difficulty(..), GameMode(..), ToNBT(..), ToNBTContents(..), XYZ(..), xyz, sunrise, _posValue)
 import Minecraft.Player (Player(..), defaultPlayer)
 
 data GeneratorName
@@ -156,9 +156,9 @@ instance ToNBTContents Level where
     , NBT "DifficultyLocked" (toNBTContents (_difficultyLocked level))
     , NBT "Time" (toNBTContents (_time level))
     , NBT "DayTime" (toNBTContents (_dayTime level))
-    , NBT "SpawnX" (toNBTContents (_x (_spawn level)))
-    , NBT "SpawnY" (toNBTContents (_y (_spawn level)))
-    , NBT "SpawnZ" (toNBTContents (_z (_spawn level)))
+    , NBT "SpawnX" (toNBTContents (_posValue (_x (_spawn level))))
+    , NBT "SpawnY" (toNBTContents (_posValue (_y (_spawn level))))
+    , NBT "SpawnZ" (toNBTContents (_posValue (_z (_spawn level))))
     , NBT "BorderCenterX" (toNBTContents (_borderCenterX level))
     , NBT "BorderCenterZ" (toNBTContents (_borderCenterZ level))
     , NBT "BorderSize" (toNBTContents (_borderSize level))
@@ -200,7 +200,7 @@ defaultLevel lvlName rSeed xpSeed = Level
   , _difficultyLocked     = True
   , _time                 = 0
   , _dayTime              = sunrise
-  , _spawn                = XYZ 0 0 0
+  , _spawn                = xyz 0 0 0
   , _borderCenterX        = 0.0
   , _borderCenterZ        = 0.0
   , _borderSize           = 6.0e7
