@@ -41,10 +41,16 @@ a <?> (Just b) = a <+> (render b)
 instance Render NBT where
   render nbt = error "Render NBT not implemented."
 
--- FIXME: add support for ~
+instance Render PosKind where
+  render Abs   = mempty
+  render Tilda = B.singleton '~'
+  render Caret = B.singleton '^'
+
+instance Render Pos where
+  render (Pos k v) = render k <> (showb v)
+
 instance Render XYZ where
-  render (XYZ x y z) = (showb x) <+>  (showb y) <+> (showb z)
-  render (RXYZ x y z) = B.singleton '~' <> (showb x) <+> B.singleton '~' <> (showb y) <+> B.singleton '~' <> (showb z)
+  render (XYZ x y z) = (render x) <+>  (render y) <+> (render z)
 
 instance Render OldBlockHandling where
   render Destroy = "destroy"

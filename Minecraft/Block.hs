@@ -1376,4 +1376,3 @@ blockNames = fromList [
   , (ZombieHead, NamespacedId "minecraft" "zombie_head")
   , (ZombieWallHead, NamespacedId "minecraft" "zombie_wall_head")
   ]
-

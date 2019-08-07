@@ -9,7 +9,7 @@ module Minecraft.Combinators where
 
 import           Prelude hiding (repeat, replicate, floor)
 import           Control.Arrow
-import           Control.Lens (Lens', view, over, set, makeLenses)
+import           Control.Lens (Lens', (^.), (&), (.~), view, over, set, makeLenses)
 import           Control.Monad
 import           Data.Int (Int32)
 import qualified Data.Text.Lazy.IO as LT
@@ -17,7 +17,7 @@ import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Map as Map
 import           Minecraft.Block
 import           Minecraft.Command (Command(SetBlock), OldBlockHandling)
-import           Minecraft.Core (XYZ(..), x, y ,z, render)
+import           Minecraft.Core (Pos(..), PosKind(..), XYZ(..), xyz, x, y ,z, origin, posKind, posValue, render)
 import           System.Random (randomIO)
 import           System.FilePath
 import           System.IO
@@ -39,7 +39,7 @@ mkBlocks = Blocks . map (\c -> BlockXYZ c Cobblestone Nothing)
 
 -- | A block of nothing (air) at the origin (0,0,0)
 zero :: Blocks
-zero = Blocks [BlockXYZ (XYZ 0 0 0) Air Nothing]
+zero = Blocks [BlockXYZ origin Air Nothing]
 
 -- | map a function `(BlockXYZ -> BlockXYZ)`
 mapBlocks :: (BlockXYZ -> BlockXYZ) -> Blocks -> Blocks
@@ -55,43 +55,30 @@ infixr 8 #
 (#) blocks k = mapKind (const k) blocks
 
 -- | We will abstract over dimensions using lenses:
-type Dimension = Lens' XYZ Int32
+type Dimension = Lens' XYZ Pos
 
 -- | Move blocks by 'i' in dimension 'd'.
 move :: Dimension -> Int32 -> Blocks -> Blocks
-move d i = mapBlocks $ over (blockXYZ . d) (+i)
+move d i = mapBlocks $ over (blockXYZ . d . posValue) (+i)
 
 -- | Translate blocks by the supplied 'x, y, z' offset.
 translate :: Int32 -> Int32 -> Int32 -> Blocks -> Blocks
 translate x' y' z' = move x x' . move y y' . move z z'
 
+-- FIXME: does this do something sensible with tilda/caret notation?
 rotate_x, rotate_y :: Blocks -> Blocks
 rotate_x = mapBlocks $ over blockXYZ $ \xyz ->
              case xyz of
                (XYZ x y z)  -> XYZ x z y
-               (RXYZ x y z) -> RXYZ x z y
 rotate_y = mapBlocks $ over blockXYZ $ \xyz ->
              case xyz of
                (XYZ x y z) -> XYZ y x z
-               (RXYZ x y z) -> RXYZ y x z
-
-grid :: Int32 -> [[Blocks]] -> Blocks
-grid spacing = f z . map (f x . map centre_xz)
-  where
-    f :: Dimension -> [Blocks] -> Blocks
-    f d = foldr (\a b -> a <> move d spacing b) mempty
-
-makeRelative :: Blocks -> Blocks
-makeRelative = mapBlocks $ over blockXYZ $ \xyz ->
-  case xyz of
-    (XYZ x y z) -> RXYZ x y z
-    _ -> xyz
 
 -- | Get the coordinate bounds for blocks along a particular dimension 'd'.
 bounds :: Dimension -> Blocks -> (Int32, Int32)
 bounds d blocks = (minimum ps, maximum ps)
   where
-    ps = map (view $ blockXYZ . d) $ unBlocks blocks
+    ps = map (view $ blockXYZ . d . posValue) $ unBlocks blocks
 
 -- | Centre blocks on the origin of the supplied dimension.
 centre :: Dimension -> Blocks -> Blocks
@@ -102,6 +89,17 @@ centre d blocks = move d (- (w `div` 2) - mn) blocks
 
 centre_xz :: Blocks -> Blocks
 centre_xz = centre x . centre z
+
+grid :: Int32 -> [[Blocks]] -> Blocks
+grid spacing = f z . map (f x . map centre_xz)
+  where
+    f :: Dimension -> [Blocks] -> Blocks
+    f d = foldr (\a b -> a <> move d spacing b) mempty
+
+setPositionKind :: PosKind -> Blocks -> Blocks
+setPositionKind k = mapBlocks $ over blockXYZ $ \xyz ->
+  case xyz of
+    (XYZ x y z) -> XYZ (x & posKind .~ k) (y & posKind .~ k) (z & posKind .~ k)
 
 -- | Repeat structure 'n' times with function 'f' applied iteratively.
 repeat :: (Blocks -> Blocks) -> Int32 -> Blocks -> Blocks
@@ -136,7 +134,7 @@ line d n = replicate d 1 n zero # Cobblestone
 
 circle :: Int32 -> Int32 -> Blocks
 circle r steps = translate r 0 r $
-    mkBlocks [ XYZ x 0 z
+    mkBlocks [ xyz x 0 z
              | s <- [1..steps]
              , let phi = (2*pi*fromIntegral s) / fromIntegral steps :: Double
                    z   = round $ fromIntegral r * cos phi
@@ -207,7 +205,7 @@ circleWall r h steps =
 
 circleFloor :: Int32 -> Blocks
 circleFloor r = translate r 0 r $
-    mkBlocks [ XYZ x 0 z
+    mkBlocks [ xyz x 0 z
              | x <- [-r..r]
              , z <- [-r..r]
              , let d = sqrt (fromIntegral $ x*x + z*z) :: Double
@@ -216,7 +214,7 @@ circleFloor r = translate r 0 r $
 
 spiral :: Int32 -> Int32 -> Int32 -> Int32 -> Blocks
 spiral r h revs steps = translate r 0 r $
-    mkBlocks [ XYZ x y z
+    mkBlocks [ xyz x y z
              | s   <- [1..steps]
              , let phi = (2*pi*fromIntegral (revs*s)) / fromIntegral steps :: Double
                    z   = round $ fromIntegral r * cos phi
@@ -326,13 +324,12 @@ mossy = randomise 0.2 (Cobblestone, MossyCobblestone)
 prune :: Blocks -> Blocks
 prune = Blocks . Map.elems . Map.fromList . map (_blockXYZ &&& id) . unBlocks
 
-renderFn :: FilePath -> String -> String -> XYZ -> Blocks -> IO ()
-renderFn minecraftDir levelName functionName XYZ{..} (prune -> blocks) =
+renderFn :: FilePath -> String -> String -> (Int32, Int32, Int32) -> Blocks -> IO ()
+renderFn minecraftDir levelName functionName (tx,ty,tz) (prune -> blocks) =
     withFile filePath WriteMode $ \hnd ->
-        forM_ (unBlocks $ translate _x _y _z blocks) $ \(BlockXYZ xyz blk mold) ->
+        forM_ (unBlocks $ translate tx ty tz blocks) $ \(BlockXYZ xyz blk mold) ->
           LT.hPutStrLn hnd $ B.toLazyText $ render (SetBlock xyz blk mold)
   where
     filePath = foldr (</>) (functionName ++ ".mcfunction")
                    [ minecraftDir, "saves", levelName, "datapacks"
                    , "haskell", "data", "haskell",  "functions" ]
-

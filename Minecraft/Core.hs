@@ -413,19 +413,40 @@ instance ToNBTContents Dimension where
       Overworld -> 0
       End       -> 1
 
+data PosKind = Abs | Tilda | Caret
+  deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
+makeLenses ''PosKind
+
+data Pos = Pos { _posKind :: PosKind, _posValue :: Int32 }
+  deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
+makeLenses ''Pos
+{-
+instance Num Pos where
+  fromInteger = Pos Abs . fromInteger
+-}
 data XYZ
-  = XYZ -- ^ absolute position
-  { _x :: Int32
-  , _y :: Int32
-  , _z :: Int32
-  }
-  | RXYZ -- ^ relative position
-    { _x :: Int32
-    , _y :: Int32
-    , _z :: Int32
+  = XYZ -- ^ relative position
+    { _x :: Pos
+    , _y :: Pos
+    , _z :: Pos
     }
   deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
 makeLenses ''XYZ
+
+ab :: Int32 -> Pos
+ab = Pos Abs
+
+tilda :: Int32 -> Pos
+tilda = Pos Tilda
+
+caret :: Int32 -> Pos
+caret = Pos Caret
+
+xyz :: Int32 -> Int32 -> Int32 -> XYZ
+xyz x y z = XYZ (ab x) (ab y) (ab z)
+
+origin :: XYZ
+origin = xyz 0 0 0
 
 data Attribute = Attribute
     deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
