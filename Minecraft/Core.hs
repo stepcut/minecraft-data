@@ -442,6 +442,11 @@ tilda = Pos Tilda
 caret :: Int32 -> Pos
 caret = Pos Caret
 
+-- TODO (TW) I think the default should be relative
+-- coordinates not absolute.
+-- Infact, why not only use absolute coordinates (if needed) at
+-- the very last rendering step? In which case, it would not
+-- feature in any of these types, but only in the rendering step.
 xyz :: Int32 -> Int32 -> Int32 -> XYZ
 xyz x y z = XYZ (ab x) (ab y) (ab z)
 

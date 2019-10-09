@@ -17,7 +17,7 @@ import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Map as Map
 import           Minecraft.Block
 import           Minecraft.Command (Command(SetBlock), OldBlockHandling)
-import           Minecraft.Core (Pos(..), PosKind(..), XYZ(..), xyz, x, y ,z, origin, posKind, posValue, render)
+import           Minecraft.Core (Pos(..), PosKind(..), XYZ(..), xyz, x, y ,z, origin, posKind, posValue, render, ab)
 import           System.Random (randomIO)
 import           System.FilePath
 import           System.IO
@@ -132,23 +132,23 @@ randomise p (from, to) (Blocks bs) =
 line :: Dimension -> Int32 -> Blocks
 line d n = replicate d 1 n zero # Cobblestone
 
-circle :: Int32 -> Int32 -> Blocks
-circle r steps = translate r 0 r $
-    mkBlocks [ xyz x 0 z
+-- | A circle of radius r in the plane formed by dimensions (d, d'), centered on (r,r).
+circle :: Dimension -> Dimension -> Int32 -> Int32 -> Blocks
+circle d d' r steps = move d r . move d' r $
+    mkBlocks [ set d (ab x) . set d' (ab z) $ origin -- TODO use relative coords
              | s <- [1..steps]
-             , let phi = (2*pi*fromIntegral s) / fromIntegral steps :: Double
+             , let phi = 2*pi*fromIntegral s / fromIntegral steps :: Double
                    z   = round $ fromIntegral r * cos phi
                    x   = round $ fromIntegral r * sin phi
              ]
 
-cylinder :: Int32 -> Int32 -> Blocks
-cylinder r h = repeat (move y 1) h (circleFloor r)
+
+-- | A solid cylinder of radius r in the plane formed by dimensions (d, d') and with length along dl.
+solidCylinder :: Dimension -> Dimension -> Dimension -> Int32 -> Int32 -> Blocks
+solidCylinder d d' dl r h = replicate dl 1 h $ solidCircle d d' r
 
 wall :: Dimension -> Int32 -> Int32 -> Blocks
-wall d w h
-    = replicate y 1 h
-    . replicate d 1 w
-    $ zero # Cobblestone
+wall d w h = replicate y 1 h $ line d w
 
 floor :: Int32 -> Int32 -> Blocks
 floor wx wz
@@ -168,9 +168,9 @@ square w =
 squareWall :: Int32 -> Int32 -> Blocks
 squareWall w h = repeat (move y 1) h (square w)
 
--- | A square of thickness 't' and width 'w'.
-wideSquare :: Int32 -> Int32 -> Blocks
-wideSquare t w = mconcat
+-- | A square roof of thickness 't' and width 'w'.
+squareRoof :: Int32 -> Int32 -> Blocks
+squareRoof t w = mconcat
     [ translate i 0 i $ square (w-2*i)
     | i <- [0..t-1]
     ]
@@ -201,50 +201,56 @@ squareTurret w h = mconcat
 
 circleWall :: Int32 -> Int32 -> Int32 -> Blocks
 circleWall r h steps =
-    repeat (move y 1) h (circle r steps)
+    replicate y 1 h (circle x z r steps)
 
-circleFloor :: Int32 -> Blocks
-circleFloor r = translate r 0 r $
-    mkBlocks [ xyz x 0 z
+-- | A filled circle of radius r in the plane formed by dimensions (d, d'), centered on (r,r).
+solidCircle :: Dimension -> Dimension -> Int32 -> Blocks
+solidCircle d d' r = move d r . move d' r $
+    mkBlocks [ set d (ab x) . set d' (ab z) $ origin -- TODO use relative coords
              | x <- [-r..r]
              , z <- [-r..r]
-             , let d = sqrt (fromIntegral $ x*x + z*z) :: Double
-             , d <= fromIntegral r
+             , let r' = sqrt (fromIntegral $ x*x + z*z) :: Double
+             , r' <= fromIntegral r
              ]
 
+circleFloor :: Int32 -> Blocks
+circleFloor = solidCircle x z
+
+-- | An upward spiral in the (x,z) plane centered on (r,r).
 spiral :: Int32 -> Int32 -> Int32 -> Int32 -> Blocks
 spiral r h revs steps = translate r 0 r $
     mkBlocks [ xyz x y z
              | s   <- [1..steps]
-             , let phi = (2*pi*fromIntegral (revs*s)) / fromIntegral steps :: Double
+             , let phi = 2*pi*fromIntegral (revs*s) / fromIntegral steps :: Double
                    z   = round $ fromIntegral r * cos phi
                    x   = round $ fromIntegral r * sin phi
                    y   = round $ fromIntegral (h*s) / (fromIntegral steps :: Double)
              ]
 
-wideSpiral :: Int32 -> Int32 -> Int32 -> Int32 -> Int32 -> Blocks
-wideSpiral r t h revs steps = mconcat
+spiralStairs :: Int32 -> Int32 -> Int32 -> Int32 -> Int32 -> Blocks
+spiralStairs r t h revs steps = mconcat
     [ translate i 0 i $ spiral (r-i) h revs steps
     | i <- [0..t-1]
     ]
 
 circularTurret :: Int32 -> Int32 -> Int32 -> Blocks
 circularTurret r h steps = mconcat
-    [ cylinder r h    # Air -- clear space
-    , translate 1 0 1 $ wideSpiral (r-1) 3 h 3 (3*steps) -- spiral staircase
+    [ solidCylinder x z y r h    # Air -- clear space
+    , translate 1 0 1 $ spiralStairs (r-1) 3 h 3 (3*steps) -- spiral staircase
     , circleWall r h steps
     , translate (-1) h (-1) (circleFloor r' <> -- upper floor
                              circleWall r' 2 (2 * steps) <> -- upper wall
-                             move y 2 (circle r' (steps `div` 2))) -- crenellations
+                             move y 2 (circle x z r' (steps `div` 2))) -- crenellations
     , translate 2 h 2 $ floor 3 3 # Air -- exit for staircase
-    , move y 1 $ repeat (move y (h `div` 3)) 3 (circle r 4) # Air -- windows
+    , move y 1 $ repeat (move y (h `div` 3)) 3 (circle x z r 4) # Air -- windows
     ]
   where r' = r + 1
 
 
+-- | An upright hollow cone in the (x,z) place, centered on (r,r).
 cone :: Int32 -> Int32 -> Int32 -> Blocks
 cone r h steps = mconcat
-    [ translate (r - r') y (r - r') $ circle r' steps
+    [ translate (r - r') y (r - r') $ circle x z r' steps
     | y <- [0..h]
     , let r' = round $ fromIntegral (r*(h-y)) / (fromIntegral h :: Double)
     ]
@@ -254,15 +260,21 @@ circularTurret_germanic :: Int32 -> Int32 -> Int32 -> Blocks
 circularTurret_germanic r h steps =
     circularTurret r h steps <>
     translate (-1) h (-1)
-         (move y 1 (circle r' 4) # Air <> -- top windows
+         (move y 1 (circle x z r' 4) # Air <> -- top windows
           move y 2 (cone r' 8 (2 * steps) # Bricks)) -- cone roof
   where r' = r + 1
 
--- | Make a solid archway of radius 'r' and thickness 't'.
+--  | Make an archway of radius 'r' and thickness 't'.
 archway :: Int32 -> Int32 -> Blocks
 archway r t
+    =  solidArch r t
+    <> move x 1 (solidArch (r-1) t # Air)
+
+--  | Make a solid arch of radius 'r' and thickness 't'.
+solidArch :: Int32 -> Int32 -> Blocks
+solidArch r t
     = replicate z 1 t
-    $ rotate_x (circleFloor r <> floor (2*r + 1) r)
+    $ solidCircle x y r <> wall x (2*r + 1) r
 
 castleKeep :: Blocks -> Int32 -> Int32 -> Blocks
 castleKeep t w h = mconcat
@@ -272,10 +284,8 @@ castleKeep t w h = mconcat
     , grid (w-1) [ [ t,  t]
                  , [ t,  t]
                  ]
-    -- make a larger archway from default stone that juts out,
-    -- before overlaying the smaller empty space one.
-    , translate (w `div` 2) 0 w $ centre x $ archway 3 2
-    , translate (w `div` 2) 0 w $ centre x $ archway 2 3 # Air
+    -- make a large archway that juts out
+    , translate (w `div` 2) 0 (w-1) $ centre x $ archway 3 3
     ]
   where
     floors
@@ -288,34 +298,27 @@ castleWall :: Int32 -> Int32 -> Blocks
 castleWall w h = mconcat
     [ squareWall w h                             -- outer wall
     , translate 3    0  3 (squareWall (w-6) h)   -- inner wall
-    , translate 1 (h-1) 1 (wideSquare 2 (w-2))   -- roof
+    , translate 1 (h-1) 1 (squareRoof 2 (w-2))   -- roof
     , translate (-1) (h-1) (-1)
         (squareWall (w+2) 2 <> move y 2 (squareCrenellations (w+2))) -- overhangs
     , translate 3 h 3 (square (w-6) # OakFence)  -- wall top fencing
-    -- since the wall is hollow we make a larger archway section
-    -- out of default stone before we overlay the smaller empty space one
-    , translate (w `div` 2) 0 (w-3) $ centre x $ archway 5 2
-    , translate (w `div` 2) 0 (w-4) $ centre x $ archway 4 4 # Air
+    , translate (w `div` 2) 0 (w-4) $ centre x $ archway 4 4
     ]
 
 englishCastle :: Blocks
 englishCastle = mconcat
-    [ castleWall w h
-    , grid (w `div` 2)
-        [ [ t,  t,  t]
-        , [ t,  k,  t]
-        , [ t,  g,  t]
-        ]
-    ]
-  where
-    t  = circularTurret 4 15 20
-    k  = castleKeep (circularTurret 3 15 20) kw kh
-    w  = 100 -- castle
-    h  = 10  -- wall height
-    kw = 24  -- keep width
-    kh = 15  -- keep height
-    -- gatehouse entrance has two turrets together
-    g  = move x (-12) t <> move x 12 t
+   [ castleWall 100{-width-} 10{-height-}
+   , grid 50 {-spacing-}
+       [ [ t,  t,  t]
+       , [ t,  k,  t]
+       , [ t,  g,  t]
+       ]
+   ]
+ where
+   t  = circularTurret 4{-radius-} 15{-height-} 20
+   t' = circularTurret 3{-radius-} 15{-height-} 20
+   k  = castleKeep t' 24{-width-} 15{-height-}
+   g  = move x (-12) t <> move x 12 t -- gatehouse entrance has two turrets together
 
 mossy :: Blocks -> IO Blocks
 mossy = randomise 0.2 (Cobblestone, MossyCobblestone)
