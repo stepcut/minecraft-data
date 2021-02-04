@@ -426,9 +426,9 @@ instance Num Pos where
 -}
 data XYZ
   = XYZ -- ^ relative position
-    { _x :: Pos
-    , _y :: Pos
-    , _z :: Pos
+    { _x :: Pos -- increasing X heads east
+    , _y :: Pos -- increasing Y goes up
+    , _z :: Pos -- inscreasing Z goes south
     }
   deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
 makeLenses ''XYZ
@@ -449,6 +449,9 @@ caret = Pos Caret
 -- feature in any of these types, but only in the rendering step.
 xyz :: Int32 -> Int32 -> Int32 -> XYZ
 xyz x y z = XYZ (ab x) (ab y) (ab z)
+
+toTilda :: XYZ -> XYZ
+toTilda (XYZ (Pos _ x) (Pos _ y) (Pos _ z)) = XYZ (Pos Tilda x) (Pos Tilda y) (Pos Tilda z)
 
 origin :: XYZ
 origin = xyz 0 0 0

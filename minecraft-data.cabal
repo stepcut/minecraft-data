@@ -1,5 +1,5 @@
 name:                minecraft-data
-version:             0.3.0
+version:             0.4.0
 synopsis:            a DSL for generating minecraft commands and levels
 description:         a DSL for generating minecraft commands and levels
 homepage:            https://github.com/stepcut/minecraft-data

@@ -9,7 +9,7 @@ module Minecraft.Combinators where
 
 import           Prelude hiding (repeat, replicate, floor)
 import           Control.Arrow
-import           Control.Lens (Lens', (^.), (&), (.~), view, over, set, makeLenses)
+import           Control.Lens (Lens', (^.), (&), (.~), view, over, set, makeLenses, mapped)
 import           Control.Monad
 import           Data.Int (Int32)
 import qualified Data.Text.Lazy.IO as LT
@@ -17,10 +17,11 @@ import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Map as Map
 import           Minecraft.Block
 import           Minecraft.Command (Command(SetBlock), OldBlockHandling)
-import           Minecraft.Core (Pos(..), PosKind(..), XYZ(..), xyz, x, y ,z, origin, posKind, posValue, render, ab)
-import           System.Random (randomIO)
+import           Minecraft.Core (Pos(..), PosKind(..), XYZ(..), xyz, x, y ,z, origin, posKind, posValue, toTilda, render, ab)
+import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath
 import           System.IO
+import           System.Random (randomIO)
 
 data BlockXYZ = BlockXYZ
   { _blockXYZ  :: XYZ
@@ -30,8 +31,13 @@ data BlockXYZ = BlockXYZ
   deriving (Eq, Show)
 makeLenses ''BlockXYZ
 
-newtype Blocks = Blocks { unBlocks :: [BlockXYZ] }
+newtype Blocks = Blocks { _blocks :: [BlockXYZ] }
     deriving (Semigroup, Monoid, Show)
+makeLenses ''Blocks
+
+-- | map `toTilda` over the Blocks
+toTilda' :: Blocks -> Blocks
+toTilda' = (over (blocks . mapped . blockXYZ) toTilda)
 
 -- | make Cobblestone blocks at the supplied XYZ coordinates
 mkBlocks :: [XYZ] -> Blocks
@@ -43,11 +49,23 @@ zero = Blocks [BlockXYZ origin Air Nothing]
 
 -- | map a function `(BlockXYZ -> BlockXYZ)`
 mapBlocks :: (BlockXYZ -> BlockXYZ) -> Blocks -> Blocks
-mapBlocks f = Blocks . map f . unBlocks
+mapBlocks f = Blocks . map f . _blocks
 
 -- | map a function `(Block -> Block)`
 mapKind :: (Block -> Block) -> Blocks -> Blocks
 mapKind f = mapBlocks $ over blockKind f
+
+-- | filter blocks
+filterBlocks :: (BlockXYZ -> Bool) -> Blocks -> Blocks
+filterBlocks f = Blocks . filter f . _blocks
+
+-- | assign each block a sequential number starting at 0 and then
+-- apply the filter predicate to those block numbers.
+--
+-- This is useful for doing things like dropping every other block
+filterN :: (Int -> Bool) -> Blocks -> Blocks
+filterN f (Blocks blks) =
+  Blocks $ map snd $ filter (\(n, _) -> f n) $ zip [0..] blks
 
 -- | Set the kind of all blocks
 infixr 8 #
@@ -78,7 +96,7 @@ rotate_y = mapBlocks $ over blockXYZ $ \xyz ->
 bounds :: Dimension -> Blocks -> (Int32, Int32)
 bounds d blocks = (minimum ps, maximum ps)
   where
-    ps = map (view $ blockXYZ . d . posValue) $ unBlocks blocks
+    ps = map (view $ blockXYZ . d . posValue) $ _blocks blocks
 
 -- | Centre blocks on the origin of the supplied dimension.
 centre :: Dimension -> Blocks -> Blocks
@@ -132,8 +150,14 @@ randomise p (from, to) (Blocks bs) =
 line :: Dimension -> Int32 -> Blocks
 line d n = replicate d 1 n zero # Cobblestone
 
--- | A circle of radius r in the plane formed by dimensions (d, d'), centered on (r,r).
-circle :: Dimension -> Dimension -> Int32 -> Int32 -> Blocks
+-- | Place the specified number of blocks, evenly spaced along a
+-- circle of radius r in the plane formed by dimensions (d, d'),
+-- centered on (r,r).
+circle :: Dimension
+       -> Dimension
+       -> Int32 -- ^ radius
+       -> Int32 -- ^ number of blocks
+       -> Blocks
 circle d d' r steps = move d r . move d' r $
     mkBlocks [ set d (ab x) . set d' (ab z) $ origin -- TODO use relative coords
              | s <- [1..steps]
@@ -142,6 +166,48 @@ circle d d' r steps = move d r . move d' r $
                    x   = round $ fromIntegral r * sin phi
              ]
 
+-- | draw a continous circle of radius r in the plane formed by the
+-- dimensions (d, d')
+--
+-- The blocks are returned so that adjacent blocks in the list are
+-- adjacent on the screen.
+--
+-- uses Brensenhams Circle Drawing Algorithm
+circle2 :: Dimension -> Dimension -> Int32 -> Blocks
+circle2 d d' r =
+  let octant1 = go 0 r (3 - (2 * r))
+  in mkBlocks $ map mkXYZ' octant1 ++
+                 (map (mkXYZ' . octant2) octant1 ++
+                  (map (mkXYZ' . octant3) octant1 ++
+                   (map (mkXYZ' . octant4) octant1 ++
+                    (map (mkXYZ' . octant5) octant1 ++
+                     (map (mkXYZ' . octant6) octant1 ++
+                      (map (mkXYZ' . octant7) octant1 ++
+                       (map (mkXYZ' . octant8) octant1)))))))
+  where
+    mkXYZ' (x,z) = set d (ab x) . set d' (ab z) $ origin
+
+    octant2 (x,z) = (x, (-z))
+    octant3 (x,z) = (z, (-x))
+    octant4 (x,z) = ((-z), (-x))
+    octant5 (x,z) = ((-x), (-z))
+    octant6 (x,z) = ((-x), z)
+    octant7 (x,z) = ((-z), x)
+    octant8 (x,z) = (z, x)
+
+    go x y d = (x, y) : step x y d
+
+    step x y d
+      | y <= x = []
+      | d <  0 =
+          let x' = x + 1
+              d' = d + (4 * x) + 6
+          in go x' y d'
+      | otherwise =
+          let x' = x + 1
+              d' = d + (4 * (x - y)) + 10
+              y' = y - 1
+          in go x' y' d'
 
 -- | A solid cylinder of radius r in the plane formed by dimensions (d, d') and with length along dl.
 solidCylinder :: Dimension -> Dimension -> Dimension -> Int32 -> Int32 -> Blocks
@@ -325,14 +391,56 @@ mossy = randomise 0.2 (Cobblestone, MossyCobblestone)
 
 -- | Removes unnecessary setblock instructions from the list.
 prune :: Blocks -> Blocks
-prune = Blocks . Map.elems . Map.fromList . map (_blockXYZ &&& id) . unBlocks
+prune = Blocks . Map.elems . Map.fromList . map (_blockXYZ &&& id) . _blocks
 
-renderFn :: FilePath -> String -> String -> (Int32, Int32, Int32) -> Blocks -> IO ()
-renderFn minecraftDir levelName functionName (tx,ty,tz) (prune -> blocks) =
-    withFile filePath WriteMode $ \hnd ->
-        forM_ (unBlocks $ translate tx ty tz blocks) $ \(BlockXYZ xyz blk mold) ->
-          LT.hPutStrLn hnd $ B.toLazyText $ render (SetBlock xyz blk mold)
+-- | layout blocks on a plane. Overhead view.
+xzLayout :: [[Block]] -> Blocks
+xzLayout blks = Blocks $ concat $ xzLayout' 0 blks
   where
-    filePath = foldr (</>) (functionName ++ ".mcfunction")
-                   [ minecraftDir, "saves", levelName, "datapacks"
-                   , "haskell", "data", "haskell",  "functions" ]
+    xzLayout' :: Int32 -> [[Block]] -> [[BlockXYZ]]
+    xzLayout' _ [] = []
+    xzLayout' z (r:rs) = (xLayout z (zip [0..] r)) : (xzLayout' (succ z) rs)
+
+    xLayout :: Int32 -> [(Int32, Block)] -> [BlockXYZ]
+    xLayout z ((x, blk):bs) = (BlockXYZ (xyz x 0 z) blk Nothing) : xLayout z bs
+
+-- | layout blocks on a plane. Overhead view.
+xyLayout :: [[Block]] -> Blocks
+xyLayout blks = Blocks $ concat $ xyLayout' (pred (fromIntegral (length blks))) blks
+  where
+    xyLayout' :: Int32 -> [[Block]] -> [[BlockXYZ]]
+    xyLayout' _ [] = []
+    xyLayout' y (r:rs) = (xLayout y (zip [0..] r)) : (xyLayout' (pred y) rs)
+
+    xLayout :: Int32 -> [(Int32, Block)] -> [BlockXYZ]
+    xLayout y ((x, blk):bs) = (BlockXYZ (xyz x y 0) blk Nothing) : xLayout y bs
+
+
+renderFn :: FilePath -- ^ minecraftDir
+         -> String   -- ^ level name
+         -> String   -- ^ function name
+         -> (Int32, Int32, Int32) -- ^ offset
+         -> Blocks -- ^ blocks
+         -> IO ()
+renderFn minecraftDir levelName functionName (tx,ty,tz) (prune -> blocks) =
+  do createDirectoryIfMissing True baseDir
+     -- FIXME: we do not need to recreate this everytime
+     withFile mcmetaPath WriteMode $ \hnd ->
+       hPutStrLn hnd $ unlines $ [ "{"
+                                 , " \"pack\": {"
+                                 , "  \"pack_format\": 3,"
+                                 , "  \"description\": \"haskell data pack\""
+                                 , " }"
+                                 , "}"
+                                 ]
+     withFile filePath WriteMode $ \hnd ->
+       forM_ (_blocks $ translate tx ty tz blocks) $ \(BlockXYZ xyz blk mold) ->
+        LT.hPutStrLn hnd $ B.toLazyText $ render (SetBlock xyz blk mold)
+  where
+    baseDir = foldr (</>) []
+                [ minecraftDir, "saves", levelName, "datapacks"
+                , "haskell", "data", "haskell", "functions"
+                ]
+
+    filePath = baseDir </> (functionName ++ ".mcfunction")
+    mcmetaPath = foldr (</>) "pack.mcmeta" [ minecraftDir, "saves", levelName, "datapacks", "haskell" ]
