@@ -120,7 +120,7 @@ instance ToNBTContents Chunk where
       , NBT "zPos" (IntTag (_zPos chunk))
       , NBT "LastUpdate" (toNBTContents (_LastUpdate chunk))
       , NBT "LightPopulated" (toNBTContents (_LightPopulated chunk))
-      , NBT "TerrainPopulated" (toNBTContents (_TerrainPopulated chunk)) -- ^ FIXME: should be not-present for False
+      , NBT "TerrainPopulated" (toNBTContents (_TerrainPopulated chunk)) --  FIXME: should be not-present for False
       , NBT "V" (ByteTag (_V chunk))
       , NBT "InhabitedTime" (LongTag (_InhabitedTime chunk))
       , NBT "Biomes" (ByteArrayTag (vectorArray (_Biomes chunk)))

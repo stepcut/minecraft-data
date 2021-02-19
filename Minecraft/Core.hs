@@ -413,6 +413,14 @@ instance ToNBTContents Dimension where
       Overworld -> 0
       End       -> 1
 
+-- | Axis
+data Axis
+  = X -- ^ east/west
+  | Y -- ^ up/down
+  | Z -- ^ north/south
+  deriving (Eq, Ord, Read, Show)
+makeLenses ''Axis
+
 data PosKind = Abs | Tilda | Caret
   deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
 makeLenses ''PosKind
@@ -428,7 +436,7 @@ data XYZ
   = XYZ -- ^ relative position
     { _x :: Pos -- increasing X heads east
     , _y :: Pos -- increasing Y goes up
-    , _z :: Pos -- inscreasing Z goes south
+    , _z :: Pos -- increasing Z goes south
     }
   deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
 makeLenses ''XYZ
@@ -452,6 +460,9 @@ xyz x y z = XYZ (ab x) (ab y) (ab z)
 
 toTilda :: XYZ -> XYZ
 toTilda (XYZ (Pos _ x) (Pos _ y) (Pos _ z)) = XYZ (Pos Tilda x) (Pos Tilda y) (Pos Tilda z)
+
+toCaret :: XYZ -> XYZ
+toCaret (XYZ (Pos _ x) (Pos _ y) (Pos _ z)) = XYZ (Pos Caret x) (Pos Caret y) (Pos Caret z)
 
 origin :: XYZ
 origin = xyz 0 0 0

@@ -150,7 +150,7 @@ mkAnvilHeader :: [((ChunkX, ChunkZ), (ChunkData, POSIXTime))]
                  -> AnvilHeader
 mkAnvilHeader chunks =
   let timestamps' = map (\(i, (_, t)) -> (chunkIndex i, t)) chunks
-      locations'   = snd $ mapAccumL mkLocation 0x2 chunks -- ^ first chunk is at sector 0x2, after the AnvilHeader
+      locations'   = snd $ mapAccumL mkLocation 0x2 chunks --  first chunk is at sector 0x2, after the AnvilHeader
   in AnvilHeader { locations  = (locations emptyAnvilHeader) Vector.// locations'
                  , timestamps = (timestamps emptyAnvilHeader) Vector.// timestamps'
                  }

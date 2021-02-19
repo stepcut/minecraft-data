@@ -10,16 +10,21 @@ been updated for Minecraft 1.10.
 
 The next step is to add some high level combinators.
 
-An example showing how to generate a chunk in a level can be found at:
+An example showing how to generate a (boring) chunk in a level can be found at:
 
 https://github.com/stepcut/minecraft-data/blob/master/utils/GenWorld.hs
 
-At the moment, the only command which is implemented is `Give`:
+At the moment, the only commands which are implemented are `Give` and `SetBlock`
 
 https://github.com/stepcut/minecraft-data/blob/master/Minecraft/Command.hs
 
-Patches welcome!
+Instead of creating levels from scratch, it is possible to use `Minecraft.Combinators` to create a minecraft function which uses `SetBlock` to place a lot of blocks.
 
+The building combinators were introduced by Tim Philip Williams is this blog post
+
+http://www.timphilipwilliams.com/posts/2019-07-25-minecraft.html
+
+At the momment, those combinators can not be used to generate worlds directly -- someone should fix that.
 
 Much of the data comes from here:
 
@@ -33,9 +38,7 @@ The flattening in 1.13 and later,
 
 http://llbit.se/?p=3274
 
-The building combinators were introduced by Tim Philip Williams is this blog post
-
-http://www.timphilipwilliams.com/posts/2019-07-25-minecraft.html
+Patches welcome!
 
 - jeremy
 
