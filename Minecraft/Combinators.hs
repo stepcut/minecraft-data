@@ -356,7 +356,6 @@ cylindrical2cartesian (rho, phi, z) =
 -- | draw a catenary curve
 --
 -- FIXME: should not have to manually supply subdivisions
--- FIXME: the lowest part of the catenary is typically not at '0' on the y-axis. Perhaps it should be normalized?
 catenary :: Int32 -- ^ width
          -> Double -- ^ 'a' - uniform scaling factor (?)
          -> Int32 -- ^ subdivisions
