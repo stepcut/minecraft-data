@@ -433,7 +433,7 @@ instance Num Pos where
   fromInteger = Pos Abs . fromInteger
 -}
 data XYZ
-  = XYZ -- ^ relative position
+  = XYZ -- ^ a position
     { _x :: Pos -- increasing X heads east
     , _y :: Pos -- increasing Y goes up
     , _z :: Pos -- increasing Z goes south

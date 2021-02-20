@@ -10,7 +10,7 @@ author:              jeremy@n-heptane.com
 maintainer:          jeremy@n-heptane.com
 category:            Game, Minecraft
 build-type:          Simple
-tested-with:         GHC == 7.10.2, GHC==8.0.1, GHC==8.10.1
+tested-with:         GHC == 8.6.5, GHC==8.8.1, GHC==8.10.1
 
 source-repository head
     type:     git

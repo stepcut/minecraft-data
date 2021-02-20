@@ -5,6 +5,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
 -- http://www.timphilipwilliams.com/posts/2019-07-25-minecraft.html
+--
+-- FIXME: much of this code is likely based on the assumption that we are using absolute coordinates
+
 module Minecraft.Combinators where
 
 import           Prelude hiding (repeat, replicate, floor)
@@ -304,6 +307,66 @@ mossy = randomise 0.2 (Cobblestone, MossyCobblestone)
 -- | Create a line of cobblestone blocks with length 'n' along dimension 'd'.
 line :: Dimension -> Int32 -> Blocks
 line d n = replicate d 1 n zero # Cobblestone
+
+-- | draw a line between 2 points
+line2p :: (Int32, Int32, Int32) -> (Int32, Int32, Int32) -> Blocks
+line2p (x0, y0, z0) (x1, y1, z1) =
+  let dx = x1 - x0
+      dy = y1 - y0
+      dz = z1 - z0
+      steps = maximum (map abs [dx, dy, dz])
+      xInc = (fromIntegral dx) / (fromIntegral steps)
+      yInc = (fromIntegral dy) / (fromIntegral steps)
+      zInc = (fromIntegral dz) / (fromIntegral steps)
+  in mkBlocks [ xyz (x0 + round (xInc * (fromIntegral step))) (y0 + round (yInc * (fromIntegral step))) (z0 + round (zInc * (fromIntegral step))) | step <- [0..steps] ]
+
+-- | draw a line from the origin to the p
+line1p :: (Int32, Int32, Int32) -> Blocks
+line1p (x1, y1, z1) =
+  let dx = x1
+      dy = y1
+      dz = z1
+      steps = maximum (map abs [dx, dy, dz])
+      xInc = (fromIntegral dx) / (fromIntegral steps)
+      yInc = (fromIntegral dy) / (fromIntegral steps)
+      zInc = (fromIntegral dz) / (fromIntegral steps)
+  in mkBlocks [ xyz (round (xInc * (fromIntegral step))) (round (yInc * (fromIntegral step))) (round (zInc * (fromIntegral step))) | step <- [0..steps] ]
+
+-- | convert spherical coordinates to cartesian
+--
+-- @(r, 0, 0)@ is a vertical line of length 'r'
+--
+-- @θ@ is radians of rotation from the 'y' axis
+--
+-- @ϕ@ is radians of rotation around the 'y' axis
+spherical2cartesian :: (Double, Double, Double) -> (Int32, Int32, Int32)
+spherical2cartesian (r, theta, phi) =
+  let dx = round (r * sin theta * cos phi)
+      dy = round (r * cos theta)
+      dz = round (r * sin theta * sin phi)
+  in (dx, dy, dz)
+
+-- | cylindrical 2 cartesian (ρ, φ, z)
+cylindrical2cartesian :: (Int, Double, Int32) -> (Int32, Int32, Int32)
+cylindrical2cartesian (rho, phi, z) =
+  let dx = round ((fromIntegral rho) * cos phi)
+      dy = round ((fromIntegral rho) * sin phi)
+  in (dx, dy, z)
+
+-- | draw a catenary curve
+--
+-- FIXME: should not have to manually supply subdivisions
+-- FIXME: the lowest part of the catenary is typically not at '0' on the y-axis. Perhaps it should be normalized?
+catenary :: Int32 -- ^ width
+         -> Double -- ^ 'a' - uniform scaling factor (?)
+         -> Int32 -- ^ subdivisions
+         -> Blocks
+catenary w a sub =
+  -- https://en.wikipedia.org/wiki/Catenary
+  let y :: Double -> Int32
+      y x = round ((a * cosh (x / a)) - a)
+  in
+    mkBlocks [ xyz (round x) (y x) 0 | x <-  [ (fromIntegral w') / (fromIntegral sub) | w' <- [0..(w * sub)]]]
 
 -- | Place the specified number of blocks, evenly spaced along a
 -- circle of radius 'r' on the plane 'p'
@@ -607,6 +670,13 @@ castleKeep t w h = mconcat
         . replicate y 6 3
         $ floor w' w' # OakPlanks
     w' = w - 2
+
+tunnel :: Int32 -> Double -> Int32 -> Int32 -> Blocks
+tunnel w a sub len =
+  let cat = rotate_180 xyPlane $ catenary w a sub
+      (minY, maxY) = bounds y cat
+  in
+    replicate z 1 len (mirror x True $ move y (0 - minY) $ cat)
 
 -- | Castle wall
 --
