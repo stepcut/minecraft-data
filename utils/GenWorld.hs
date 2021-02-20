@@ -7,7 +7,6 @@ import qualified Data.Vector as Vector
 import Minecraft.Anvil (ChunkX, ChunkZ, ChunkData, ChunkMap, compressChunkData, writeChunkMap)
 import Minecraft.Core (BlockId(..), toNBT)
 import Minecraft.Chunk (Chunk(..), Section(..), emptyChunk, emptySection)
-import Pipes.ByteString (toHandle)
 import System.IO (IOMode(WriteMode), withFile)
 
 section0 :: Section

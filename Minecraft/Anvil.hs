@@ -18,16 +18,12 @@ import Data.List (mapAccumL)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.NBT (NBT)
-import Data.Serialize (Serialize(..), Get, Put, decodeLazy, encodeLazy, getLazyByteString, getWord8, getWord32be, putLazyByteString, putWord8, putWord32be)
+import Data.Serialize (Result(..), Serialize(..), Get, Put, decodeLazy, encodeLazy, getLazyByteString, getWord8, getWord32be, putLazyByteString, putWord8, putWord32be, runGetPartial, runPutLazy)
 import Data.Time.Clock.POSIX (POSIXTime)
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import Data.Word  (Word8, Word32)
 import GHC.Generics
-import Pipes.ByteString (fromHandle, toHandle)
-import Pipes.Cereal  (decodeGet, encodePut)
-import Pipes.Parse (runStateT)
-import Pipes (Pipe, runEffect, (>->), await, each, yield)
 import System.IO (Handle, hSeek, SeekMode(AbsoluteSeek))
 
 {-
@@ -200,6 +196,7 @@ instance Serialize ChunkData where
   get = getChunkData
 
 -- | read 'ChunkData' from a Seekable 'Handle'
+{-
 readChunkData :: Handle -> ChunkLocation -> IO (Maybe ChunkData)
 readChunkData h chunkLocation
   | chunkLocation == emptyChunkLocation = pure Nothing
@@ -209,7 +206,29 @@ readChunkData h chunkLocation
          case r of
            (Left err) -> error err
            (Right cd) -> pure (Just cd)
+-}
 
+readChunkData :: Handle -> ChunkLocation -> IO (Either String ChunkData)
+readChunkData h chunkLocation
+  | chunkLocation == emptyChunkLocation = pure $ Left "empty chunk location"
+  | otherwise =
+      do hSeek h AbsoluteSeek (fromIntegral $ ((chunkOffset chunkLocation) * 4096))
+         go h (runGetPartial getChunkData)
+           where
+             go :: Handle -> (B.ByteString -> Result ChunkData) -> IO (Either String ChunkData)
+             go h cont =
+               do bs <- B.hGetSome h 4096
+                  case cont bs of
+                    Fail err _ -> pure (Left err)
+                    Done r _ -> pure (Right r)
+                    Partial c -> go h c
+{-
+         LB.hGet
+         (r, _) <- runStateT (decodeGet getChunkData) (fromHandle h)
+         case r of
+           (Left err) -> error err
+           (Right cd) -> pure (Just cd)
+-}
 -- | write 'ChunkData' to a Seekable 'Handle'
 --
 -- FIXME: chunks are supposed to be guaranteed less than 1MB
@@ -220,14 +239,20 @@ writeChunkData h chunkData =
      let padding = 4096 - ((chunkDataLength chunkData + 4) `mod` 4096)
      when (padding > 0) (B.hPutStr h (B.replicate (fromIntegral padding) 0))
 -}
-
+{-
 writeChunkData :: (Monad m) => Pipe ChunkData B.ByteString m ()
 writeChunkData  = do
   chunkData <- await
   encodePut (putChunkData chunkData)
   let padding = 4096 - ((chunkDataLength chunkData + 4) `mod` 4096)
   when (padding > 0) (yield (B.replicate (fromIntegral padding) 0))
+-}
 
+writeChunkData :: Handle -> ChunkData -> IO ()
+writeChunkData h chunkData =
+  do LB.hPut h (encodeLazy chunkData)
+     let padding = 4096 - ((chunkDataLength chunkData + 4) `mod` 4096)
+     when (padding > 0) $ LB.hPut h (LB.replicate (fromIntegral padding) 0)
 {-
 
   do bytes <- execStateT (runEffect $ (encodePut (putChunkData chunkData)) >-> counter >-> (toHandle h)) 0
@@ -263,7 +288,7 @@ compressChunkData nbt =
                , chunkDataCompression = Zlib
                , chunkData            = d
                }
-
+{-
 writeChunkMap :: Handle -> ChunkMap -> IO ()
 writeChunkMap h chunkMap =
   do hSeek h AbsoluteSeek 0
@@ -274,3 +299,11 @@ writeChunkMap h chunkMap =
      -- [(ChunkPos, ChunkData)] -> [(ChunkPos, Length)]
      -- chunks' <- mapM (\(chunkPos, (cd, modTime)) -> do i <- writeChunkData h cd ; pure (chunkPos, (i, modTime))) chunks
      pure ()
+-}
+
+writeChunkMap :: Handle -> ChunkMap -> IO ()
+writeChunkMap h chunkMap =
+  do hSeek h AbsoluteSeek 0
+     let chunks = Map.toAscList chunkMap
+     LB.hPut h (runPutLazy (putAnvilHeader (mkAnvilHeader chunks)))
+     mapM_ (writeChunkData h . fst . snd) chunks

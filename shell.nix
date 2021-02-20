@@ -5,16 +5,14 @@ let
   inherit (nixpkgs) pkgs;
 
   f = { mkDerivation, array, base, bimap, bytestring, cereal, containers
-      , lens, nbt, pipes, pipes-bytestring, pipes-cereal, pipes-parse
-      , pipes-zlib, stdenv, text, text-show, time, vector, zlib, cabal-install, mtl
+      , lens, nbt, stdenv, text, text-show, time, vector, zlib, cabal-install, mtl
       }:
       mkDerivation {
         pname = "minecraft-data";
         version = "0.1.0.0";
         src = ./.;
         libraryHaskellDepends = [
-          array base bimap bytestring cereal containers lens nbt pipes
-          pipes-bytestring pipes-cereal pipes-parse pipes-zlib text text-show
+          array base bimap bytestring cereal containers lens nbt text text-show
           time vector zlib mtl
         ];
         buildTools = [ cabal-install ];

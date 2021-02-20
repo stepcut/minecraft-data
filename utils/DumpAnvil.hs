@@ -24,10 +24,10 @@ main =
 
 dumpChunk :: Handle -> ChunkLocation -> IO ()
 dumpChunk h chunkLocation =
-  do mcd <- readChunkData h chunkLocation
-     case mcd of
-       Nothing -> pure ()
-       (Just cd) -> print (decompressChunkData cd)
+  do ecd <- readChunkData h chunkLocation
+     case ecd of
+       (Left e) -> putStrLn e
+       (Right cd) -> print (decompressChunkData cd)
 
 dumpChunks :: Handle -> AnvilHeader -> IO ()
 dumpChunks h ah =
