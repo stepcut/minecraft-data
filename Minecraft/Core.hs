@@ -441,6 +441,20 @@ data XYZ
   deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
 makeLenses ''XYZ
 
+data CardinalDirection
+  = North
+  | East
+  | South
+  | West
+    deriving (Eq, Ord, Read, Show)
+makeLenses ''CardinalDirection
+
+instance Render CardinalDirection where
+  render North = "north"
+  render East  = "east"
+  render South = "south"
+  render West  = "west"
+
 ab :: Int32 -> Pos
 ab = Pos Abs
 

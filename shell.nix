@@ -5,7 +5,7 @@ let
   inherit (nixpkgs) pkgs;
 
   f = { mkDerivation, array, base, bimap, bytestring, cereal, containers
-      , lens, nbt, stdenv, text, text-show, time, vector, zlib, cabal-install, mtl
+      , lens, nbt, stdenv, text, text-show, time, vector, zlib, cabal-install, mtl, random
       }:
       mkDerivation {
         pname = "minecraft-data";
@@ -13,7 +13,7 @@ let
         src = ./.;
         libraryHaskellDepends = [
           array base bimap bytestring cereal containers lens nbt text text-show
-          time vector zlib mtl
+          time vector zlib mtl random
         ];
         buildTools = [ cabal-install ];
         homepage = "https://github.com/stepcut/minecraft-data";

@@ -1,12 +1,14 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances #-}
 -- https://www.digminecraft.com/game_commands/setblock_command.php
 -- Using 1.13/1.14 syntax
 module Minecraft.Command where
 
 import Data.Data (Data)
 import qualified Data.Bimap as Bimap
+import Data.List (intersperse)
 import Data.Typeable (Typeable)
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.Monoid ((<>), mconcat, mempty)
@@ -26,9 +28,20 @@ data OldBlockHandling
   | Replace
     deriving (Eq, Show)
 
+data DataValue
+  = Facing CardinalDirection
+    deriving (Eq, Ord, Read, Show)
+
+instance Render DataValue where
+  render (Facing dir) = "facing=" <> render dir
+
+instance Render [DataValue] where
+  render [] = mempty
+  render dvs = B.singleton '[' <> mconcat (intersperse (B.fromText ", ") $ map render dvs) <> B.singleton ']'
+
 data Command
   = Give Target Item (Maybe Int6) (Maybe Int64) (Maybe NBT)
-  | SetBlock XYZ Block (Maybe OldBlockHandling)
+  | SetBlock XYZ Block [DataValue] (Maybe OldBlockHandling)
     deriving (Eq, Show)
 
 (<+>) :: Builder -> Builder -> Builder
@@ -65,6 +78,7 @@ instance Render Block where
     case Bimap.lookup blk blockNames of
       (Just n) -> render n
 
+
 instance Render Command where
   render command =
     case command of
@@ -72,5 +86,5 @@ instance Render Command where
        "give" <+> render target <+> showb item
      (Give target item mAmount mData mDataTag) ->
        "give" <+> render target <+> showb item <+> (maybe "1" render mAmount) <+> (maybe "0" render mData) <?> mDataTag
-     (SetBlock xyz blk mOldBlockHandling) ->
-       "setblock" <+> render xyz <+> render blk <?> mOldBlockHandling
+     (SetBlock xyz blk dvs mOldBlockHandling) ->
+       "setblock" <+> render xyz <+> render blk <> render dvs <?> mOldBlockHandling

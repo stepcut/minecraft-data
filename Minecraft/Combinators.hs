@@ -19,7 +19,7 @@ import qualified Data.Text.Lazy.IO as LT
 import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Map as Map
 import           Minecraft.Block
-import           Minecraft.Command (Command(SetBlock), OldBlockHandling)
+import           Minecraft.Command (Command(SetBlock), DataValue(..), OldBlockHandling)
 import           Minecraft.Core (Axis(..), Pos(..), PosKind(..), XYZ(..), xyz, x, y ,z, origin, posKind, posValue, toTilda, toCaret, render, ab)
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath
@@ -30,6 +30,7 @@ import           System.Random (randomIO)
 data BlockXYZ = BlockXYZ
   { _blockXYZ  :: XYZ
   , _blockKind :: Block
+  , _blockDataValues :: [DataValue]
   , _blockOldHandling :: Maybe OldBlockHandling
   }
   deriving (Eq, Show)
@@ -50,11 +51,11 @@ toCaret' = (over (blocks . mapped . blockXYZ) toCaret)
 
 -- | make Cobblestone blocks at the supplied XYZ coordinates
 mkBlocks :: [XYZ] -> Blocks
-mkBlocks = Blocks . map (\c -> BlockXYZ c Cobblestone Nothing)
+mkBlocks = Blocks . map (\c -> BlockXYZ c Cobblestone [] Nothing)
 
 -- | A block of nothing (air) at the origin (0,0,0)
 zero :: Blocks
-zero = Blocks [BlockXYZ origin Air Nothing]
+zero = Blocks [BlockXYZ origin Air [] Nothing]
 
 -- | map a function @(BlockXYZ -> BlockXYZ)@ over the 'Blocks'
 mapBlocks :: (BlockXYZ -> BlockXYZ) -> Blocks -> Blocks
@@ -63,6 +64,9 @@ mapBlocks f = Blocks . map f . _blocks
 -- | map a function @(Block -> Block)@ over the 'Blocks'
 mapKind :: (Block -> Block) -> Blocks -> Blocks
 mapKind f = mapBlocks $ over blockKind f
+
+mapDataValues :: ([DataValue] -> [DataValue]) -> Blocks -> Blocks
+mapDataValues f = mapBlocks $ over blockDataValues f
 
 -- | filter blocks
 filterBlocks :: (BlockXYZ -> Bool) -- ^ predicate. If it returns 'False' the block is removed
@@ -82,6 +86,10 @@ filterN f (Blocks blks) =
 infixr 8 #
 (#) :: Blocks -> Block -> Blocks
 (#) blocks k = mapKind (const k) blocks
+
+infixr 8 !
+(!) :: Blocks -> [DataValue] -> Blocks
+(!) blocks k = mapDataValues (const k) blocks
 
 -- | We will abstract over dimensions using lenses:
 type Dimension = Lens' XYZ Pos
@@ -217,7 +225,10 @@ repeat :: (Blocks -> Blocks) -> Int32 -> Blocks -> Blocks
 repeat f n = mconcat . take (fromIntegral n) . iterate f
 
 -- | replicate structure 'n' times with a spacing 'i' in dimension 'd'.
-replicate :: Dimension -> Int32 -> Int32 -> Blocks -> Blocks
+replicate :: Dimension -- ^ Dimension
+          -> Int32 -- ^ spacing 'i'
+          -> Int32 -- ^ 'n' times
+          -> Blocks -> Blocks
 replicate d i = repeat (move d i)
 
 -- | Substitute one block for another, intended to be used infix, e.g.
@@ -257,7 +268,7 @@ xzLayout blks = Blocks $ concat $ xzLayout' 0 blks
     xzLayout' z (r:rs) = (xLayout z (zip [0..] r)) : (xzLayout' (succ z) rs)
 
     xLayout :: Int32 -> [(Int32, Block)] -> [BlockXYZ]
-    xLayout z ((x, blk):bs) = (BlockXYZ (xyz x 0 z) blk Nothing) : xLayout z bs
+    xLayout z ((x, blk):bs) = (BlockXYZ (xyz x 0 z) blk [] Nothing) : xLayout z bs
 
 -- | layout blocks on the xy plane @(z == 0)@.
 xyLayout :: [[Block]] -> Blocks
@@ -268,7 +279,7 @@ xyLayout blks = Blocks $ concat $ xyLayout' (pred (fromIntegral (length blks))) 
     xyLayout' y (r:rs) = (xLayout y (zip [0..] r)) : (xyLayout' (pred y) rs)
 
     xLayout :: Int32 -> [(Int32, Block)] -> [BlockXYZ]
-    xLayout y ((x, blk):bs) = (BlockXYZ (xyz x y 0) blk Nothing) : xLayout y bs
+    xLayout y ((x, blk):bs) = (BlockXYZ (xyz x y 0) blk [] Nothing) : xLayout y bs
 
 -- | layout blocks on the yz plane @(x == 0)@.
 yzLayout :: [[Block]] -> Blocks
@@ -279,7 +290,7 @@ yzLayout blks = Blocks $ concat $ yzLayout' (pred (fromIntegral (length blks))) 
     yzLayout' z (r:rs) = (yLayout z (zip [0..] r)) : (yzLayout' (pred z) rs)
 
     yLayout :: Int32 -> [(Int32, Block)] -> [BlockXYZ]
-    yLayout z ((y, blk):bs) = (BlockXYZ (xyz 0 y z) blk Nothing) : yLayout z bs
+    yLayout z ((y, blk):bs) = (BlockXYZ (xyz 0 y z) blk [] Nothing) : yLayout z bs
 
 -- * Randomise
 
@@ -355,7 +366,10 @@ cylindrical2cartesian (rho, phi, z) =
 
 -- | draw a catenary curve
 --
--- FIXME: should not have to manually supply subdivisions
+-- FIXME: should not have to manually supply subdivisions. Can we use DDA?
+-- http://members.chello.at/easyfilter/bresenham.pdf
+-- https://wanjarerushikesh.wordpress.com/dda-algorithm-for-curve-drawing/
+-- https://www.cs.virginia.edu/~lat7h/4810/F2018/files/implguide_2010.pdf
 catenary :: Int32 -- ^ width
          -> Double -- ^ 'a' - uniform scaling factor (?)
          -> Int32 -- ^ subdivisions
@@ -484,12 +498,12 @@ spiral r h revs steps = translate r 0 r $
                    y   = round $ fromIntegral (h*s) / (fromIntegral steps :: Double)
              ]
 
--- | a solid, 1 brick wide rectangle
-solidRectangle :: Dimension -- ^ rectangle direction (dimension)
-               -> Int32 -- ^ length
-               -> Int32 -- ^ height
+-- | a solid, 1 brick thick rectangle
+solidRectangle :: Plane
+               -> Int32 -- ^ length of dimension 1
+               -> Int32 -- ^ length of dimension 2
                -> Blocks
-solidRectangle d w h = replicate y 1 h $ line d w
+solidRectangle (Plane d1 d2) w h = replicate d2 1 h $ line d1 w
 
 -- * Castle Combinators
 
@@ -498,7 +512,7 @@ wall :: Dimension -- ^ wall direction (dimension)
      -> Int32 -- ^ length
      -> Int32 -- ^ height
      -> Blocks
-wall d w h = solidRectangle d w h
+wall d w h = solidRectangle (Plane d y) w h
 
 -- | a solid, 1 brick deep floor
 floor :: Int32 -- ^ x-width
@@ -753,8 +767,8 @@ renderFn minecraftDir levelName functionName (tx,ty,tz) (prune -> blocks) =
                                  , "}"
                                  ]
      withFile filePath WriteMode $ \hnd ->
-       forM_ (_blocks $ translate tx ty tz blocks) $ \(BlockXYZ xyz blk mold) ->
-        LT.hPutStrLn hnd $ B.toLazyText $ render (SetBlock xyz blk mold)
+       forM_ (_blocks $ translate tx ty tz blocks) $ \(BlockXYZ xyz blk dvs mold) ->
+        LT.hPutStrLn hnd $ B.toLazyText $ render (SetBlock xyz blk dvs mold)
   where
     baseDir = foldr (</>) []
                 [ minecraftDir, "saves", levelName, "datapacks"
