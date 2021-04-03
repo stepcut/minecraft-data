@@ -449,11 +449,24 @@ data CardinalDirection
     deriving (Eq, Ord, Read, Show)
 makeLenses ''CardinalDirection
 
+data BlockType
+  = Bottom
+  | Double
+  | Top
+    deriving (Eq, Ord, Read, Show)
+makeLenses ''BlockType
+
 instance Render CardinalDirection where
   render North = "north"
   render East  = "east"
   render South = "south"
   render West  = "west"
+
+instance Render BlockType where
+  render Bottom = "bottom"
+  render Double = "double"
+  render Top    = "top"
+
 
 ab :: Int32 -> Pos
 ab = Pos Abs
