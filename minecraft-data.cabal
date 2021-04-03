@@ -27,7 +27,7 @@ library
                        Minecraft.Player
   other-extensions:    DeriveDataTypeable, DeriveGeneric, OverloadedStrings
   build-depends:       array,
-                       base >=4.8 && <4.15,
+                       base >=4.8 && <4.16,
                        bimap,
                        bytestring,
                        containers,

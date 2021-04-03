@@ -30,10 +30,12 @@ data OldBlockHandling
 
 data DataValue
   = Facing CardinalDirection
+  | BlockType BlockType
     deriving (Eq, Ord, Read, Show)
 
 instance Render DataValue where
   render (Facing dir) = "facing=" <> render dir
+  render (BlockType bt) = "type=" <> render bt
 
 instance Render [DataValue] where
   render [] = mempty
